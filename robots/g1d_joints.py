@@ -9,6 +9,16 @@ GRIPPER_CLOSED = -0.02
 GRIPPER_OPEN = 0.0245
 
 
+def binary_gripper_targets(commands, previous, close_threshold, open_threshold):
+    """Quantize normalized commands with a deadband that retains the previous state."""
+    commands = commands.clamp(0, 1)
+    return torch.where(
+        commands <= close_threshold,
+        torch.zeros_like(commands),
+        torch.where(commands >= open_threshold, torch.ones_like(commands), previous),
+    )
+
+
 def joint_indices(robot):
     if not hasattr(robot, "_g1d_indices"):
         names = robot.joint_names

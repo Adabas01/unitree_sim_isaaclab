@@ -76,6 +76,19 @@ def load_settings(path=DEFAULT_SCENE):
         "robot.gripper_actuator values",
         True,
     )
+    gripper_control = robot.setdefault("gripper_control", {})
+    if not isinstance(gripper_control, dict):
+        raise ValueError("robot.gripper_control must be an object")
+    gripper_control.setdefault("mode", "continuous")
+    gripper_control.setdefault("close_threshold", 0.45)
+    gripper_control.setdefault("open_threshold", 0.55)
+    if gripper_control["mode"] not in ("continuous", "binary"):
+        raise ValueError("robot.gripper_control.mode must be 'continuous' or 'binary'")
+    close_threshold = gripper_control["close_threshold"]
+    open_threshold = gripper_control["open_threshold"]
+    _numbers([close_threshold, open_threshold], 2, "robot.gripper_control thresholds")
+    if not 0 <= close_threshold <= open_threshold <= 1:
+        raise ValueError("Gripper thresholds must satisfy 0 <= close <= open <= 1")
     if any(not 0 <= q <= 0.21 for q in robot["lift_positions"]):
         raise ValueError("Each lift position must be within [0, 0.21] metres")
     if not -0.04363 <= robot["torso_pitch"] <= 2.3562 or not -2.7053 <= robot["torso_yaw"] <= 2.7053:

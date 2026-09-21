@@ -10,7 +10,13 @@ from unitree_sdk2py.idl.default import unitree_hg_msg_dds__LowCmd_, unitree_go_m
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_
 from unitree_sdk2py.utils.crc import CRC
 from dds.g1d_bridge import G1DBridge
-from robots.g1d_joints import ARM_JOINTS, FINGER_JOINTS, GRIPPER_OPEN, joint_state
+from robots.g1d_joints import (
+    ARM_JOINTS,
+    FINGER_JOINTS,
+    GRIPPER_OPEN,
+    binary_gripper_targets,
+    joint_state,
+)
 
 
 class SDKMappingTests(unittest.TestCase):
@@ -111,6 +117,20 @@ class SDKMappingTests(unittest.TestCase):
         self.robot.data.joint_pos[0, index] = 0.4
         self.now.return_value = 100.65
         self.assertAlmostEqual(float(self.bridge.action()[0, 0]), 0.3)
+
+
+class BinaryGripperTests(unittest.TestCase):
+    def test_thresholds_and_deadband(self):
+        previous = torch.tensor([[1.0, 0.0]])
+        targets = binary_gripper_targets(
+            torch.tensor([[0.2, 0.8]]), previous, close_threshold=0.45, open_threshold=0.55
+        )
+        torch.testing.assert_close(targets, torch.tensor([[0.0, 1.0]]))
+
+        held = binary_gripper_targets(
+            torch.tensor([[0.5, 0.5]]), targets, close_threshold=0.45, open_threshold=0.55
+        )
+        torch.testing.assert_close(held, targets)
 
 
 if __name__ == "__main__":

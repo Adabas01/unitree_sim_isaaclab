@@ -7,7 +7,13 @@ import torch
 from isaaclab.managers import ActionTerm, ActionTermCfg
 from isaaclab.utils import configclass
 
-from robots.g1d_joints import GRIPPER_CLOSED, GRIPPER_OPEN, joint_indices, joint_state
+from robots.g1d_joints import (
+    GRIPPER_CLOSED,
+    GRIPPER_OPEN,
+    binary_gripper_targets,
+    joint_indices,
+    joint_state,
+)
 from .layout import objects, sample_layout
 from .evaluation.config import STAGE_NAMES
 from .evaluation.predicates import fully_inside_bin
@@ -21,6 +27,12 @@ class G1DSortAction(ActionTerm):
         self._arm_ids, self._finger_ids = joint_indices(self._asset)
         self._raw = joint_state(env).clone()
         self._targets = self._asset.data.default_joint_pos.clone()
+        self._gripper_control = env.cfg.sorting["robot"]["gripper_control"]
+        threshold_midpoint = (
+            self._gripper_control["close_threshold"]
+            + self._gripper_control["open_threshold"]
+        ) / 2
+        self._binary_grip = (self._raw[:, [7, 15]] >= threshold_midpoint).float()
 
     @property
     def action_dim(self):
@@ -42,7 +54,16 @@ class G1DSortAction(ActionTerm):
         arm_targets = torch.cat((actions[:, :7], actions[:, 8:15]), dim=1)
         limits = self._asset.data.soft_joint_pos_limits[:, self._arm_ids]
         self._targets[:, self._arm_ids] = torch.clamp(arm_targets, limits[..., 0], limits[..., 1])
-        grip = GRIPPER_CLOSED + actions[:, [7, 15]].clamp(0, 1) * (GRIPPER_OPEN - GRIPPER_CLOSED)
+        grip_command = actions[:, [7, 15]].clamp(0, 1)
+        if self._gripper_control["mode"] == "binary":
+            self._binary_grip = binary_gripper_targets(
+                grip_command,
+                self._binary_grip,
+                self._gripper_control["close_threshold"],
+                self._gripper_control["open_threshold"],
+            )
+            grip_command = self._binary_grip
+        grip = GRIPPER_CLOSED + grip_command * (GRIPPER_OPEN - GRIPPER_CLOSED)
         self._targets[:, self._finger_ids] = grip.repeat_interleave(2, dim=1)
         if hasattr(self._env, "_g1d_torso_yaw_target"):
             yaw_id = self._asset.joint_names.index("torso_Joint")
@@ -55,8 +76,14 @@ class G1DSortAction(ActionTerm):
     def reset(self, env_ids=None):
         if env_ids is None:
             env_ids = slice(None)
-        self._raw[env_ids] = joint_state(self._env)[env_ids]
+        measured = joint_state(self._env)
+        self._raw[env_ids] = measured[env_ids]
         self._targets[env_ids] = self._asset.data.default_joint_pos[env_ids]
+        threshold_midpoint = (
+            self._gripper_control["close_threshold"]
+            + self._gripper_control["open_threshold"]
+        ) / 2
+        self._binary_grip[env_ids] = (measured[env_ids][:, [7, 15]] >= threshold_midpoint).float()
 
 
 @configclass

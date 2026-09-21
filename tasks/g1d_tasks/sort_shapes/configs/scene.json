@@ -12,6 +12,11 @@
       "stiffness_n_m": 1000.0,
       "damping_n_s_m": 20.0,
       "effort_limit_n": 20.0
+    },
+    "gripper_control": {
+      "mode": "binary",
+      "close_threshold": 0.45,
+      "open_threshold": 0.55
     }
   },
   "cubes": {"count": 2, "size": [0.055, 0.055, 0.055], "mass": 0.04, "color": [0.04, 0.65, 0.08], "target_bin": "brown_box"},

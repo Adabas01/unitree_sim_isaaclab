@@ -225,6 +225,8 @@ front of the robot, +Y to its left, and +Z upward.
 | `robot.gripper_actuator.velocity_limit_m_s` | Maximum simulated finger speed; raise this to shorten open/close time |
 | `robot.gripper_actuator.stiffness_n_m`, `damping_n_s_m` | Position-controller response for the prismatic finger joints |
 | `robot.gripper_actuator.effort_limit_n` | Maximum simulated finger actuator force |
+| `robot.gripper_control.mode` | `continuous` follows 0–1 commands; `binary` commands fully closed or open |
+| `robot.gripper_control.close_threshold`, `open_threshold` | Binary switching thresholds; values between them retain the preceding state |
 | `room.size` | Room X/Y/Z dimensions |
 | `room.ambient_intensity`, `ceiling_intensity` | Ambient fill and overhead lighting |
 
@@ -272,7 +274,10 @@ Arm commands are absolute radians. Grippers use 0=closed, 1=open and couple the
 two fingers on each side. This imported URDF opens at +0.0245 m and closes at
 -0.020 m. The old simulator's Dex1 USD conversion helper uses a different
 convention and is not reused here. Arm targets are clamped to joint limits;
-gripper inputs are clamped to [0,1]. Non-finite actions are rejected.
+gripper inputs are clamped to [0,1]. In binary mode, commands at or below the
+close threshold close fully, commands at or above the open threshold open fully,
+and commands in the deadband keep the previous state. Non-finite actions are
+rejected.
 
 The chassis is fixed to the world; wheels, lift and torso pitch have fixed
 position targets. No AGV driving interface is implemented in this task. Robot
