@@ -59,6 +59,23 @@ def load_settings(path=DEFAULT_SCENE):
     _numbers(robot["lift_positions"], 2, "robot.lift_positions")
     robot.setdefault("arm_positions", [0.0] * 14)
     _numbers(robot["arm_positions"], 14, "robot.arm_positions")
+    gripper = robot.setdefault("gripper_actuator", {})
+    if not isinstance(gripper, dict):
+        raise ValueError("robot.gripper_actuator must be an object")
+    defaults = {
+        "velocity_limit_m_s": 0.4,
+        "stiffness_n_m": 1000.0,
+        "damping_n_s_m": 20.0,
+        "effort_limit_n": 20.0,
+    }
+    for key, value in defaults.items():
+        gripper.setdefault(key, value)
+    _numbers(
+        [gripper[key] for key in defaults],
+        len(defaults),
+        "robot.gripper_actuator values",
+        True,
+    )
     if any(not 0 <= q <= 0.21 for q in robot["lift_positions"]):
         raise ValueError("Each lift position must be within [0, 0.21] metres")
     if not -0.04363 <= robot["torso_pitch"] <= 2.3562 or not -2.7053 <= robot["torso_yaw"] <= 2.7053:

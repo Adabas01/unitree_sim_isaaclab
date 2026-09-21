@@ -222,6 +222,9 @@ front of the robot, +Y to its left, and +Z upward.
 | `robot.arm_positions` | Initial left-arm 7 values followed by right-arm 7 values, in radians |
 | `robot.lift_positions` | Extension of the two lift joints, each from 0 to 0.21 m |
 | `robot.torso_pitch`, `torso_yaw` | Parked torso pose |
+| `robot.gripper_actuator.velocity_limit_m_s` | Maximum simulated finger speed; raise this to shorten open/close time |
+| `robot.gripper_actuator.stiffness_n_m`, `damping_n_s_m` | Position-controller response for the prismatic finger joints |
+| `robot.gripper_actuator.effort_limit_n` | Maximum simulated finger actuator force |
 | `room.size` | Room X/Y/Z dimensions |
 | `room.ambient_intensity`, `ceiling_intensity` | Ambient fill and overhead lighting |
 

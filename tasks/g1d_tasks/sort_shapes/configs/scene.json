@@ -6,7 +6,13 @@
     "lift_positions": [0.0, 0.0],
     "torso_pitch": 0.0,
     "torso_yaw": 0.0,
-    "arm_positions": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    "arm_positions": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    "gripper_actuator": {
+      "velocity_limit_m_s": 0.4,
+      "stiffness_n_m": 1000.0,
+      "damping_n_s_m": 20.0,
+      "effort_limit_n": 20.0
+    }
   },
   "cubes": {"count": 2, "size": [0.055, 0.055, 0.055], "mass": 0.04, "color": [0.04, 0.65, 0.08], "target_bin": "brown_box"},
   "cylinders": {"count": 1, "radius": 0.025, "height": 0.1, "mass": 0.05, "color": [0.75, 0.025, 0.025], "target_bin": "green_box"},

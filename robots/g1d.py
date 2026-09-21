@@ -25,6 +25,7 @@ def robot_config(settings):
         # Despite its name, Yaw_Joint is the URDF's joint about the Y (pitch) axis.
         "Yaw_Joint": settings["torso_pitch"], "torso_Joint": settings["torso_yaw"],
     })
+    gripper = settings["gripper_actuator"]
     return ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
@@ -53,7 +54,10 @@ def robot_config(settings):
             ),
             "grippers": ImplicitActuatorCfg(
                 joint_names_expr=FINGER_JOINTS,
-                stiffness=1000.0, damping=20.0, effort_limit_sim=20.0, velocity_limit_sim=0.2,
+                stiffness=gripper["stiffness_n_m"],
+                damping=gripper["damping_n_s_m"],
+                effort_limit_sim=gripper["effort_limit_n"],
+                velocity_limit_sim=gripper["velocity_limit_m_s"],
             ),
             "lift": ImplicitActuatorCfg(
                 joint_names_expr=["LZ_mt_Joint", "LZ_it_Joint"],
