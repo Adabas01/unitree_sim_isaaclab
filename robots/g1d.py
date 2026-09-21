@@ -29,6 +29,7 @@ def robot_config(settings):
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
             usd_path=str(USD_PATH),
+            activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False, max_depenetration_velocity=0.5,
             ),

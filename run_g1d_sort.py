@@ -16,6 +16,13 @@ parser.add_argument(
     type=Path,
     default=Path(__file__).parent / "tasks/g1d_tasks/sort_shapes/configs/scene.json",
 )
+parser.add_argument(
+    "--evaluation-config",
+    type=Path,
+    default=Path(__file__).parent / "tasks/g1d_tasks/sort_shapes/configs/evaluation.json",
+)
+parser.add_argument("--evaluation-output", type=Path, help="Override the JSONL evaluation output path")
+parser.add_argument("--evaluation-run-label", help="Label this run, for example the policy checkpoint name")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--steps", type=int, default=0, help="Stop after N control steps; 0 runs until the window closes")
 parser.add_argument("--reset-every", type=float, default=0, help="Randomize the scene every N simulated seconds")
@@ -53,8 +60,14 @@ try:
     from tasks.g1d_tasks.sort_shapes.layout import load_settings
     from tasks.g1d_tasks.sort_shapes.mdp import joint_state
     from tasks.g1d_tasks.sort_shapes.env_cfg import G1DSortEnvCfg
+    from tasks.g1d_tasks.sort_shapes.evaluation import load_evaluation_settings
 
-    cfg = G1DSortEnvCfg(sorting=load_settings(args.scene_config))
+    evaluation = load_evaluation_settings(args.evaluation_config)
+    if args.evaluation_output:
+        evaluation["logging"]["path"] = str(args.evaluation_output.resolve())
+    if args.evaluation_run_label is not None:
+        evaluation["logging"]["run_label"] = args.evaluation_run_label
+    cfg = G1DSortEnvCfg(sorting=load_settings(args.scene_config), evaluation=evaluation)
     cfg.sim.device = args.device
     cfg.seed = args.seed
     env = gym.make("Isaac-Sort-Shapes-G1D-Dex1-Joint", cfg=cfg).unwrapped
@@ -75,6 +88,8 @@ try:
     reset_interval = max(1, round(args.reset_every / env.step_dt)) if args.reset_every else 0
     count = 0
     print("G1-D sorting scene ready. Cameras: front_camera, left_wrist_camera, right_wrist_camera, world_camera.", flush=True)
+    if evaluation["logging"]["enabled"]:
+        print(f"Evaluation output: {env.g1d_evaluation_recorder.output_path}", flush=True)
     print("SDK control enabled; waiting for commands." if bridge else "Preview holds the starting pose; add --sdk for SDK control.", flush=True)
     with torch.inference_mode():
         while app.is_running() and (args.steps == 0 or count < args.steps):
@@ -86,8 +101,11 @@ try:
                 continue
             request = bridge.take_reset_request() if bridge else None
             if request == "1":
+                env.g1d_evaluation_recorder.write_pending("objects_reset")
                 from tasks.g1d_tasks.sort_shapes.mdp import reset_objects
                 reset_objects(env, None)
+                env.g1d_evaluation.reset()
+                env.episode_length_buf.zero_()
             elif request == "2":
                 env.reset()
                 bridge.reset()
@@ -106,12 +124,13 @@ try:
                 raise RuntimeError("Non-finite robot state")
             if args.capture_dir and count == min(60, args.steps or 60):
                 args.capture_dir.mkdir(parents=True, exist_ok=True)
-                for name, sensor in env.scene.sensors.items():
+                for name in ("front_camera", "left_wrist_camera", "right_wrist_camera", "world_camera"):
+                    sensor = env.scene[name]
                     rgb = sensor.data.output["rgb"][0, ..., :3].cpu().numpy()
                     Image.fromarray(rgb).save(args.capture_dir / f"{name}.png")
                 manifest = dict(
                     task="Isaac-Sort-Shapes-G1D-Dex1-Joint", seed=args.seed, control_step=count,
-                    step_dt=env.step_dt, settings=cfg.sorting,
+                    step_dt=env.step_dt, settings=cfg.sorting, evaluation=cfg.evaluation,
                     object_poses={name: obj.data.root_state_w[:, :7].cpu().tolist()
                                   for name, obj in env.scene.rigid_objects.items()},
                 )
@@ -131,6 +150,8 @@ except Exception:
     exit_code = 1
     traceback.print_exc()
 finally:
+    if env is not None and hasattr(env, "g1d_evaluation_recorder"):
+        env.g1d_evaluation_recorder.write_pending("closed")
     if bridge is not None:
         bridge.close()
     if image_server is not None:

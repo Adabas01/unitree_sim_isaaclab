@@ -15,7 +15,14 @@ tasks/g1d_tasks/<task_name>/
 ├── __init__.py
 ├── README.md
 ├── configs/
-│   └── scene.json
+│   ├── scene.json
+│   └── evaluation.json
+├── evaluation/
+│   ├── config.py
+│   ├── evaluator.py
+│   ├── predicates.py
+│   ├── recorder.py
+│   └── state_machine.py
 ├── env_cfg.py
 ├── layout.py
 ├── mdp.py

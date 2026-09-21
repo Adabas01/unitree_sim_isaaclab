@@ -121,6 +121,65 @@ any missing-image errors, repeat with `--max-steps 0 --execute-actions true
 simulator and evaluator use DDS domain 1; the policy connection and camera
 streams use TCP on localhost.
 
+## Evaluation
+
+The environment evaluates every object with five ordered, monotonic stages:
+
+| Stage | Condition |
+| --- | --- |
+| Reach | Either gripper's pinch point stays within the configured distance of the object surface |
+| Grasp | Both opposing fingers of one gripper contact the same object while the gripper is sufficiently closed |
+| Lift | The bottom of the object stays above the tabletop by the configured clearance |
+| Transport | The object centre moves over its target bin opening |
+| Place | The whole object is inside the target bin, moving slowly, released, and remains there for the dwell time |
+
+Each stage begins accumulating dwell time only after the previous stage was
+credited. A broken condition resets that stage's dwell timer. Credited stages
+remain credited for the rest of the episode. The partial success rate (PSR) is
+the weighted mean of credited stages over all configured objects. Binary success
+requires every object to complete `place`, followed by the task success dwell.
+The evaluator also counts drops after lifting and stable placements in a wrong
+bin. These metrics use simulator state and contact sensors and are available
+only in `scene_state`; they are not policy inputs.
+
+Thresholds, dwell times, weights, timeout, automatic success termination, and
+logging are configured in [configs/evaluation.json](configs/evaluation.json).
+The defaults are initial engineering thresholds and should be calibrated using
+real rollouts before reporting a simulation-to-real comparison.
+
+Start a labeled evaluation run like this:
+
+```bash
+python run_g1d_sort.py --device cpu --enable_cameras \
+    --sdk --dds-interface lo --stream-cameras \
+    --evaluation-run-label pi05_g1d_sort_lora-4999
+```
+
+Each completed, timed-out, manually reset, or closed episode is appended as one
+JSON object to `logs/g1d_evaluation/episodes.jsonl`. The record contains binary
+success, task and per-object PSR, stage completion times, geometric sorting
+fraction, drops, wrong-bin events, duration, seed, and scene/evaluation config
+hashes. `rt/reset_pose/cmd` value `"1"` closes the current evaluation episode,
+randomizes the objects, and restarts its timeout without moving the robot.
+
+Inspect the latest episode:
+
+```bash
+tail -n 1 logs/g1d_evaluation/episodes.jsonl | python -m json.tool
+```
+
+Summarize all episodes, grouped by the run labels used for different policy
+checkpoints:
+
+```bash
+python tools/summarize_g1d_evaluation.py \
+    logs/g1d_evaluation/episodes.jsonl
+```
+
+Use `--format json` for a machine-readable aggregate or `--group-by run_id` to
+separate simulator launches. Alternative protocols and log files can be passed
+with `--evaluation-config` and `--evaluation-output`.
+
 To demonstrate randomized resets and save camera views:
 
 ```bash
@@ -131,7 +190,8 @@ python run_g1d_sort.py --device cpu --enable_cameras \
 `--reset-every` is measured in simulated seconds. After 60 control steps, the
 capture folder contains four PNGs plus the settings/seed/object poses in
 `scene.json`. Without a reset interval the layout stays in place until the
-300-second episode times out. Physics continues while the scene is playing.
+configured episode timeout is reached (120 seconds by default). Physics
+continues while the scene is playing.
 
 For a bounded headless run:
 
@@ -217,14 +277,17 @@ configuration and named joints are in [robots/g1d.py](../../../robots/g1d.py).
 
 Policy observations also contain raw uint8 RGB under `head`, `left_wrist`, and
 `right_wrist`; these are batched tensors. The separate `scene_state` group has
-object poses and geometric sorting progress. Objects are ordered cubes first,
-then cylinders, using `cube_000`, `cylinder_000`, etc.
+object poses, geometric sorting progress, flattened per-object stage flags, and
+an evaluation summary. Objects are ordered cubes first, then cylinders, using
+`cube_000`, `cylinder_000`, etc. The evaluation summary is ordered as reach,
+grasp, lift, transport and place rates, then task PSR, binary success, total
+drops and total wrong-bin events.
 
-The current reward measures the fraction of objects fully inside their target
-box and moving slowly. Cubes target the brown box and cylinders the green box by
-default (`target_bin` is configurable), matching the OpenPI evaluator prompt. It is only a progress signal: grasp
-release/contact confirmation and a sustained success duration still need to be
-added for policy evaluation. Success does not auto-reset the scene.
+The reward measures the fraction of objects fully inside their target box and
+moving slowly. Cubes target the brown box and cylinders the green box by default
+(`target_bin` is configurable), matching the OpenPI evaluator prompt. The reward
+remains a simple geometric training signal; the separate evaluator supplies the
+ordered contact-aware metrics and success termination.
 
 Actuator gains and friction are initial simulation settings. Self-collisions
 are disabled; the original URDF has no collisions on the two moving lift links.
@@ -239,8 +302,9 @@ Placement checks (no simulator needed):
 python3 -m unittest discover -s tests -p test_g1d_layout.py
 ```
 
-Protocol mapping, CRC rejection, gripper units, blend weight and command-timeout
-checks (CPU only, simulator environment required, no DDS connections created):
+Layout, geometric predicates, ordered stage progression, protocol mapping, CRC
+rejection, gripper units, blend weight and command-timeout checks (CPU only,
+simulator environment required, no DDS connections created):
 
 ```bash
 python -m unittest discover -s tests -p 'test_g1d_*.py'

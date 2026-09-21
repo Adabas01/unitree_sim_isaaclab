@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "enabled": true,
+  "episode_timeout_s": 120.0,
+  "stages": {
+    "reach": {
+      "enter_distance_m": 0.06,
+      "exit_distance_m": 0.08,
+      "dwell_s": 0.10,
+      "weight": 0.15
+    },
+    "grasp": {
+      "minimum_contact_force_n": 0.20,
+      "maximum_gripper_open_fraction": 0.90,
+      "dwell_s": 0.10,
+      "weight": 0.20
+    },
+    "lift": {
+      "table_clearance_m": 0.03,
+      "dwell_s": 0.20,
+      "weight": 0.20
+    },
+    "transport": {
+      "bin_xy_margin_m": 0.0,
+      "dwell_s": 0.10,
+      "weight": 0.15
+    },
+    "place": {
+      "bin_margin_m": 0.004,
+      "maximum_linear_speed_m_s": 0.03,
+      "maximum_angular_speed_rad_s": 0.20,
+      "release_contact_force_n": 0.05,
+      "minimum_gripper_open_fraction": 0.75,
+      "require_release": true,
+      "dwell_s": 0.50,
+      "weight": 0.30
+    }
+  },
+  "task_success": {
+    "dwell_s": 0.25,
+    "terminate_episode": true
+  },
+  "failures": {
+    "drop_clearance_m": 0.01
+  },
+  "logging": {
+    "enabled": true,
+    "path": "logs/g1d_evaluation/episodes.jsonl",
+    "run_label": ""
+  }
+}

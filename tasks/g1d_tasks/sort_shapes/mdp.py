@@ -6,10 +6,11 @@ import random
 import torch
 from isaaclab.managers import ActionTerm, ActionTermCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import matrix_from_quat
 
 from robots.g1d_joints import GRIPPER_CLOSED, GRIPPER_OPEN, joint_indices, joint_state
 from .layout import objects, sample_layout
+from .evaluation.config import STAGE_NAMES
+from .evaluation.predicates import fully_inside_bin
 
 
 class G1DSortAction(ActionTerm):
@@ -95,11 +96,7 @@ def reset_objects(env, env_ids):
 
 
 def sorted_fraction(env):
-    """Geometric progress only: fully inside the target bin and moving slowly.
-
-    This is not a calibrated grasp-release success criterion. It deliberately
-    does not terminate episodes, so later evaluation can add a dwell/contact test.
-    """
+    """Geometric reward: fraction fully inside the target bin and moving slowly."""
     items = objects(env.cfg.sorting)
     score = torch.zeros(env.num_envs, device=env.device)
     boxes = {box["name"]: box for box in env.cfg.sorting["bins"]}
@@ -107,21 +104,32 @@ def sorted_fraction(env):
     for obj in items:
         data = env.scene[obj["name"]].data
         pos = data.root_pos_w - env.scene.env_origins
-        rot = matrix_from_quat(data.root_quat_w)
-        if obj["kind"] == "cube":
-            half = torch.tensor(obj["size"], device=env.device) / 2
-            extent = (rot.abs() * half).sum(-1)
-        else:
-            axis = rot[:, :, 2]
-            extent = obj["radius"] * (1 - axis.square()).clamp_min(0).sqrt() + obj["size"][2] / 2 * axis.abs()
         box = boxes[obj["target_bin"]]
-        center = torch.tensor(box["center_xy"], device=env.device)
-        half_bin = torch.tensor(box["inner_size"][:2], device=env.device) / 2
-        inside = ((pos[:, :2] - center).abs() + extent[:, :2] <= half_bin).all(-1)
-        bottom = table_z + box["wall_thickness"]
-        inside &= pos[:, 2] - extent[:, 2] >= bottom - 0.004
-        inside &= pos[:, 2] + extent[:, 2] <= bottom + box["inner_size"][2]
+        inside = fully_inside_bin(pos, data.root_quat_w, obj, box, table_z)
         inside &= data.root_lin_vel_w.norm(dim=-1) < 0.03
         inside &= data.root_ang_vel_w.norm(dim=-1) < 0.2
         score += inside.float()
     return score / max(1, len(items))
+
+
+def evaluation_stages(env):
+    """Monotonic per-object stage flags for privileged inspection only."""
+    evaluator = getattr(env, "g1d_evaluation", None)
+    count = len(objects(env.cfg.sorting)) * len(STAGE_NAMES)
+    if evaluator is None:
+        return torch.zeros((env.num_envs, count), device=env.device)
+    return evaluator.achieved.float().flatten(start_dim=1)
+
+
+def evaluation_summary(env):
+    """Stage rates, PSR, success, drops and wrong-bin events."""
+    evaluator = getattr(env, "g1d_evaluation", None)
+    if evaluator is None:
+        return torch.zeros((env.num_envs, len(STAGE_NAMES) + 4), device=env.device)
+    return torch.cat((
+        evaluator.stage_rates,
+        evaluator.task_score[:, None],
+        evaluator.success.float()[:, None],
+        evaluator.drop_count.sum(dim=1, keepdim=True).float(),
+        evaluator.wrong_bin_count.sum(dim=1, keepdim=True).float(),
+    ), dim=1)

@@ -10,12 +10,13 @@ from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import EventTermCfg, ObservationGroupCfg, ObservationTermCfg, RewardTermCfg, TerminationTermCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import CameraCfg
+from isaaclab.sensors import CameraCfg, ContactSensorCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_from_matrix
 
 from robots.g1d import robot_config
 from . import mdp
+from .evaluation import EvaluationRecorderManagerCfg, StageEvaluator, load_evaluation_settings
 from .layout import load_settings, objects, sample_layout
 from .visuals import apply_robot_materials
 
@@ -43,7 +44,7 @@ def camera_config(path, config, resolution):
     )
 
 
-def build_scene(settings):
+def build_scene(settings, evaluation):
     room = settings["room"]
     scene = InteractiveSceneCfg(num_envs=1, env_spacing=max(room["size"][:2]) + 1, replicate_physics=True)
     material = sim_utils.RigidBodyMaterialCfg(static_friction=0.9, dynamic_friction=0.8, restitution=0.0)
@@ -109,7 +110,8 @@ def build_scene(settings):
     if seed == -1:
         seed = None
     poses = sample_layout(settings, random.Random(seed))
-    for obj in objects(settings):
+    items = objects(settings)
+    for obj in items:
         shape_args = dict(
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 solver_position_iteration_count=16, solver_velocity_iteration_count=4,
@@ -129,6 +131,18 @@ def build_scene(settings):
             prim_path=f"{{ENV_REGEX_NS}}/{obj['name']}", spawn=shape,
             init_state=RigidObjectCfg.InitialStateCfg(pos=(x, y, z), rot=(math.cos(yaw / 2), 0, 0, math.sin(yaw / 2))),
         ))
+
+    if evaluation["enabled"] and items:
+        object_paths = [f"{{ENV_REGEX_NS}}/{obj['name']}" for obj in items]
+        for side in ("left", "right"):
+            for finger in (1, 2):
+                setattr(scene, f"{side}_finger_{finger}_contact", ContactSensorCfg(
+                    prim_path=f"{{ENV_REGEX_NS}}/Robot/{side}_dex1_finger_link_{finger}",
+                    update_period=0.0,
+                    history_length=0,
+                    filter_prim_paths_expr=object_paths,
+                    debug_vis=False,
+                ))
 
     cameras = settings["cameras"]
     resolution = cameras["width"], cameras["height"]
@@ -174,6 +188,8 @@ class ObservationsCfg:
     class SceneCfg(ObservationGroupCfg):
         object_poses = ObservationTermCfg(func=mdp.object_poses)
         sorted_fraction = ObservationTermCfg(func=mdp.sorted_fraction)
+        evaluation_stages = ObservationTermCfg(func=mdp.evaluation_stages)
+        evaluation_summary = ObservationTermCfg(func=mdp.evaluation_summary)
 
         def __post_init__(self):
             self.enable_corruption = False
@@ -197,21 +213,24 @@ class RewardsCfg:
 
 @configclass
 class TerminationsCfg:
+    success = TerminationTermCfg(func=StageEvaluator)
     time_out = TerminationTermCfg(func=base_mdp.time_out, time_out=True)
 
 
 @configclass
 class G1DSortEnvCfg(ManagerBasedRLEnvCfg):
     sorting: dict = load_settings()
+    evaluation: dict = load_evaluation_settings()
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=3.0)
     actions = ActionsCfg()
     observations = ObservationsCfg()
     events = EventsCfg()
     rewards = RewardsCfg()
     terminations = TerminationsCfg()
+    recorders = EvaluationRecorderManagerCfg()
 
     def __post_init__(self):
-        self.scene = build_scene(self.sorting)
+        self.scene = build_scene(self.sorting, self.evaluation)
 
         env_seed = self.sorting["randomization"]["fixed_seed"]
         self.seed = None if env_seed == -1 else env_seed
@@ -226,7 +245,7 @@ class G1DSortEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render.enable_reflections = True
         self.sim.render.antialiasing_mode = "DLAA"
         self.sim.physx.bounce_threshold_velocity = 0.05
-        self.episode_length_s = 300.0
+        self.episode_length_s = self.evaluation["episode_timeout_s"]
         self.num_rerenders_on_reset = 1
         self.viewer.eye = (1.8, 1.6, 1.8)
         self.viewer.lookat = (0.4, 0.0, 0.9)
