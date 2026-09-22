@@ -23,6 +23,7 @@ parser.add_argument(
 )
 parser.add_argument("--evaluation-output", type=Path, help="Override the JSONL evaluation output path")
 parser.add_argument("--evaluation-run-label", help="Label this run, for example the policy checkpoint name")
+parser.add_argument("--episode-timeout", type=float, help="Override episode timeout in simulated seconds")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--steps", type=int, default=0, help="Stop after N control steps; 0 runs until the window closes")
 parser.add_argument("--reset-every", type=float, default=0, help="Randomize the scene every N simulated seconds")
@@ -30,12 +31,15 @@ parser.add_argument("--capture-dir", type=Path, help="Save all four camera image
 parser.add_argument("--sdk", action="store_true", help="Enable G1 arm/torso-yaw and Dex1 DDS control on domain 1")
 parser.add_argument("--dds-interface", default=None, help="DDS network interface; default uses SDK autodetection")
 parser.add_argument("--command-timeout", type=float, default=0.5, help="Hold measured joint positions after this many seconds without commands")
+parser.add_argument("--reset-command-hold", type=float, default=1.1, help="Ignore SDK commands for this many seconds after an episode reset")
 parser.add_argument("--stream-cameras", action="store_true", help="Publish head/wrist images through the existing teleimager server")
 parser.add_argument("--show-colliders", action="store_true", help="Show PhysX collision shapes in the interactive viewport")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
-if args.steps < 0 or args.reset_every < 0 or not 0 < args.command_timeout < float("inf"):
-    parser.error("Steps/reset interval must be nonnegative and command timeout must be finite and positive")
+if (args.steps < 0 or args.reset_every < 0 or not 0 < args.command_timeout < float("inf")
+        or not 0 <= args.reset_command_hold < float("inf")
+        or (args.episode_timeout is not None and not 0 < args.episode_timeout < float("inf"))):
+    parser.error("Steps/reset intervals must be nonnegative and command timings must be finite")
 if not args.enable_cameras:
     parser.error("This task needs --enable_cameras")
 os.environ["PROJECT_ROOT"] = str(Path(__file__).resolve().parent)
@@ -61,12 +65,14 @@ try:
         from unitree_sdk2py.core.channel import ChannelFactoryInitialize
         ChannelFactoryInitialize(1, args.dds_interface)
     import tasks  # noqa: F401
-    from tasks.g1d_tasks.sort_shapes.layout import load_settings
+    from tasks.g1d_tasks.sort_shapes.layout import load_settings, objects
     from tasks.g1d_tasks.sort_shapes.mdp import joint_state
     from tasks.g1d_tasks.sort_shapes.env_cfg import G1DSortEnvCfg
     from tasks.g1d_tasks.sort_shapes.evaluation import load_evaluation_settings
 
     evaluation = load_evaluation_settings(args.evaluation_config)
+    if args.episode_timeout is not None:
+        evaluation["episode_timeout_s"] = args.episode_timeout
     if args.evaluation_output:
         evaluation["logging"]["path"] = str(args.evaluation_output.resolve())
     if args.evaluation_run_label is not None:
@@ -76,10 +82,25 @@ try:
     cfg.seed = args.seed
     env = gym.make("Isaac-Sort-Shapes-G1D-Dex1-Joint", cfg=cfg).unwrapped
     env.reset(seed=args.seed)
+
+    def reset_state_summary():
+        position_values = []
+        for item in objects(cfg.sorting):
+            position = env.scene[item["name"]].data.root_pos_w[0] - env.scene.env_origins[0]
+            xyz = position.cpu().tolist()
+            position_values.append(f"{item['name']}=({xyz[0]:.3f}, {xyz[1]:.3f}, {xyz[2]:.3f})")
+        robot = env.scene["robot"]
+        pose_error = (robot.data.joint_pos - robot.data.default_joint_pos).abs().max().item()
+        return ", ".join(position_values) if position_values else "no objects", pose_error
+
     hold = joint_state(env).clone()
     if args.sdk:
         from dds.g1d_bridge import G1DBridge
-        bridge = G1DBridge(env, timeout=args.command_timeout)
+        bridge = G1DBridge(
+            env,
+            timeout=args.command_timeout,
+            reset_hold=args.reset_command_hold,
+        )
     if args.stream_cameras:
         from tools.shared_memory_utils import MultiImageWriter
         from teleimager.image_server import run_isaacsim_server
@@ -98,6 +119,12 @@ try:
     if evaluation["logging"]["enabled"]:
         print(f"Evaluation output: {env.g1d_evaluation_recorder.output_path}", flush=True)
     print("SDK control enabled; waiting for commands." if bridge else "Preview holds the starting pose; add --sdk for SDK control.", flush=True)
+    initial_positions, initial_pose_error = reset_state_summary()
+    print(
+        f"[G1-D evaluation] Episode 1 start: robot_pose_error={initial_pose_error:.6f}, "
+        f"{initial_positions}",
+        flush=True,
+    )
     with torch.inference_mode():
         while app.is_running() and (args.steps == 0 or count < args.steps):
             start = time.monotonic()
@@ -124,15 +151,25 @@ try:
                     reasons.append("success")
                 if truncated.any():
                     reasons.append("timeout")
+                counters_reset = not bool(env.episode_length_buf[done].any().item()) and not bool(
+                    env.g1d_evaluation.steps[done].any().item()
+                )
+                positions, robot_pose_error = reset_state_summary()
+                automatic_reset_ok = counters_reset and robot_pose_error <= 1e-5
+                if not automatic_reset_ok:
+                    env.reset()
+                    positions, robot_pose_error = reset_state_summary()
+                if bridge:
+                    bridge.reset()
                 episode_number += 1
                 print(
                     f"[G1-D evaluation] Episode {episode_number - 1} ended "
-                    f"({'+'.join(reasons)}); episode {episode_number} was reset automatically.",
+                    f"({'+'.join(reasons)}); episode {episode_number} reset "
+                    f"{'verified' if automatic_reset_ok else 'with explicit fallback'}, "
+                    f"robot_pose_error={robot_pose_error:.6f}: {positions}",
                     flush=True,
                 )
             if bridge:
-                if done.any():
-                    bridge.reset()
                 bridge.update_state()
             if image_writer:
                 image_writer.write_images({

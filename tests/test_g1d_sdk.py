@@ -30,6 +30,7 @@ class SDKMappingTests(unittest.TestCase):
         self.bridge = object.__new__(G1DBridge)
         for key, value in dict(env=self.env, robot=self.robot, timeout=0.5, _error=None,
                                _lock=threading.Lock(), _commands={}, _fresh=set(),
+                               _ignore_commands_until=0.0,
                                rejected_commands=0, accepted_commands=0).items():
             setattr(self.bridge, key, value)
         self.bridge._yaw_id = names.index("torso_Joint")
@@ -117,6 +118,17 @@ class SDKMappingTests(unittest.TestCase):
         self.robot.data.joint_pos[0, index] = 0.4
         self.now.return_value = 100.65
         self.assertAlmostEqual(float(self.bridge.action()[0, 0]), 0.3)
+
+    def test_commands_are_ignored_during_post_reset_hold(self):
+        self.bridge._ignore_commands_until = 101.0
+        self.send(self.command())
+        self.grip("left", 0.0)
+        self.assertEqual(self.bridge._commands, {})
+
+        self.now.return_value = 101.01
+        self.send(self.command())
+        self.grip("left", 0.0)
+        self.assertEqual(set(self.bridge._commands), {"arms", "left"})
 
 
 class BinaryGripperTests(unittest.TestCase):

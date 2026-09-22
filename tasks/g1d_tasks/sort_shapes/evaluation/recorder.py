@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 import hashlib
 import json
+import time
 
 from isaaclab.managers import DatasetExportMode, RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
@@ -25,7 +26,17 @@ class EvaluationRecorder(RecorderTerm):
         self.run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
         self.episode_numbers = [0] * env.num_envs
         self._last_episode_serial = [-1] * env.num_envs
+        self._wall_start = [time.monotonic()] * env.num_envs
         env.g1d_evaluation_recorder = self
+
+    def reset(self, env_ids: Sequence[int] | None = None):
+        if env_ids is None:
+            env_ids = range(self._env.num_envs)
+        elif hasattr(env_ids, "tolist"):
+            env_ids = env_ids.tolist()
+        now = time.monotonic()
+        for env_id in env_ids:
+            self._wall_start[int(env_id)] = now
 
     def _reason(self, env_id, fallback):
         evaluator = getattr(self._env, "g1d_evaluation", None)
@@ -106,6 +117,7 @@ class EvaluationRecorder(RecorderTerm):
                 for stage_index, name in enumerate(STAGE_NAMES)
             },
             "duration_s": float(evaluator.steps[env_id].item() * self._env.step_dt),
+            "wall_duration_s": float(time.monotonic() - self._wall_start[env_id]),
             "control_steps": int(evaluator.steps[env_id].item()),
             "step_dt_s": float(self._env.step_dt),
             "seed": self._env.cfg.seed,
@@ -120,6 +132,7 @@ class EvaluationRecorder(RecorderTerm):
             stream.write(json.dumps(record, sort_keys=True, allow_nan=False) + "\n")
         self._last_episode_serial[env_id] = episode_serial
         self.episode_numbers[env_id] += 1
+        self._wall_start[env_id] = time.monotonic()
         print(
             f"[G1-D evaluation] {record['reason']}: PSR={record['partial_success']:.3f}, "
             f"sorted={record['geometric_sorted_fraction']:.3f} -> {self.output_path}",

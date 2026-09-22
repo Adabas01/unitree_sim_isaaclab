@@ -22,12 +22,15 @@ from robots.g1d_joints import ARM_JOINTS, FINGER_JOINTS, GRIPPER_CLOSED, GRIPPER
 class G1DBridge:
     SDK_GRIPPER_OPEN = 5.4
 
-    def __init__(self, env, timeout=0.5):
+    def __init__(self, env, timeout=0.5, reset_hold=1.1):
         if env.num_envs != 1:
             raise ValueError("One DDS robot requires exactly one simulation environment")
+        if not math.isfinite(reset_hold) or reset_hold < 0:
+            raise ValueError("reset_hold must be finite and nonnegative")
         self.env = env
         self.robot = env.scene["robot"]
         self.timeout = timeout
+        self.reset_hold = reset_hold
         self._lock = threading.Lock()
         self._commands = {}
         self._reset_requested = None
@@ -44,6 +47,7 @@ class G1DBridge:
         self._held_action = joint_state(env).clone()
         self._held_yaw = self.robot.data.joint_pos[:, self._yaw_id].clone()
         self._fresh = set()
+        self._ignore_commands_until = 0.0
         self.publishers = [ChannelPublisher("rt/lowstate", LowState_)]
         self.publishers += [ChannelPublisher(f"rt/dex1/{side}/state", MotorStates_) for side in ("left", "right")]
         for publisher in self.publishers:
@@ -63,7 +67,11 @@ class G1DBridge:
         self.update_state()
         self._thread = threading.Thread(target=self._publish_loop, name="g1d_state", daemon=True)
         self._thread.start()
-        print("[G1-D SDK] Domain 1; arm slots 15–28, torso yaw 12; Dex1 0=closed, 5.4=open", flush=True)
+        print(
+            f"[G1-D SDK] Domain 1; arm slots 15–28, torso yaw 12; Dex1 0=closed, "
+            f"5.4=open; post-reset command hold={self.reset_hold:.2f}s",
+            flush=True,
+        )
 
     def _arm_command(self, msg, topic):
         # Motor 29 is the arm_sdk blend weight; leg slots never command this robot.
@@ -79,6 +87,8 @@ class G1DBridge:
             if not math.isfinite(weight):
                 raise ValueError("Invalid arm_sdk weight")
             with self._lock:
+                if time.monotonic() < self._ignore_commands_until:
+                    return
                 self._commands["arms"] = (time.monotonic(), q, active, max(0.0, min(1.0, weight)))
                 self.accepted_commands += 1
         except (ValueError, IndexError, TypeError, OverflowError):
@@ -90,6 +100,8 @@ class G1DBridge:
             if not math.isfinite(q):
                 raise ValueError("Invalid gripper target")
             with self._lock:
+                if time.monotonic() < self._ignore_commands_until:
+                    return
                 self._commands[side] = (time.monotonic(), max(0.0, min(1.0, q / self.SDK_GRIPPER_OPEN)))
                 self.accepted_commands += 1
         except (ValueError, IndexError, TypeError):
@@ -109,6 +121,7 @@ class G1DBridge:
         with self._lock:
             self._commands.clear()
             self._reset_requested = None
+            self._ignore_commands_until = time.monotonic() + self.reset_hold
         self._held_action = joint_state(self.env).clone()
         self._held_yaw = self.robot.data.joint_pos[:, self._yaw_id].clone()
         self._fresh.clear()

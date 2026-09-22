@@ -77,6 +77,13 @@ It uses `teleimager/cam_config_server.yaml` and the existing ZMQ ports 55555
 (head), 55556 (left), 55557 (right), plus configured WebRTC services. SDK motor
 control works independently of camera streaming.
 
+On a success or timeout, Isaac Lab resets the robot to `robot.arm_positions`,
+the configured torso/lift pose, and open grippers. The launcher verifies the
+joint state after reset and prints `robot_pose_error`; a failed automatic reset
+is repeated explicitly. With SDK control, incoming commands are ignored for 1.1
+seconds after reset so a continuously running policy cannot immediately hide
+the initial pose. Change this interval with `--reset-command-hold`.
+
 ## OpenPI policy smoke test
 
 The policy server, simulator, and evaluator run as three processes. Start the
@@ -150,11 +157,19 @@ logging are configured in [configs/evaluation.json](configs/evaluation.json).
 The defaults are initial engineering thresholds and should be calibrated using
 real rollouts before reporting a simulation-to-real comparison.
 
+`episode_timeout_s` is simulated time. At the 30 Hz control rate, a 30-second
+timeout always fires after 900 control steps. Rendering, CPU physics, camera
+streaming, and policy inference can make those steps take longer than 30 seconds
+of wall-clock time. JSONL records therefore contain both `duration_s` and
+`wall_duration_s`. Override the configured timeout for one run with, for example,
+`--episode-timeout 30`.
+
 Start a labeled evaluation run like this:
 
 ```bash
 python run_g1d_sort.py --device cpu --enable_cameras \
     --sdk --dds-interface lo --stream-cameras \
+    --episode-timeout 30 \
     --evaluation-run-label pi05_g1d_sort_lora-4999
 ```
 
@@ -162,7 +177,7 @@ Each completed, timed-out, manually reset, or closed episode is appended as one
 JSON object to `logs/g1d_evaluation/episodes.jsonl`. The record contains binary
 success, task and per-object PSR, stage completion times, geometric sorting
 fraction, drops, wrong-bin events, closest reach distance, opposing-finger force,
-maximum lift clearance, duration, seed, and scene/evaluation config hashes.
+maximum lift clearance, simulated/wall duration, seed, and scene/evaluation config hashes.
 `rt/reset_pose/cmd` value `"1"` closes the current evaluation episode,
 randomizes the objects, and restarts its timeout without moving the robot.
 
