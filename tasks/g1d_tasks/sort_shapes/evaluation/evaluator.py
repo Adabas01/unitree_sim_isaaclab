@@ -4,12 +4,13 @@ from collections.abc import Sequence
 
 import torch
 from isaaclab.managers import ManagerTermBase
+from isaaclab.utils.math import quat_apply
 
 from robots.g1d_joints import joint_state
 from ..layout import objects
 from .config import STAGE_NAMES
 from .predicates import center_over_bin, fully_inside_bin, point_surface_distance, world_extent
-from .state_machine import advance_ordered_stages
+from .state_machine import advance_condition_dwell, advance_ordered_stages
 
 
 REACH, GRASP, LIFT, TRANSPORT, PLACE = range(len(STAGE_NAMES))
@@ -53,12 +54,24 @@ class StageEvaluator(ManagerTermBase):
         self.episode_serial = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
         self.initial_object_pos = torch.full((env.num_envs, self.num_objects, 3), torch.nan, device=env.device)
         self.geometric_sorted_fraction = torch.zeros(env.num_envs, device=env.device)
+        object_shape = (env.num_envs, self.num_objects)
+        self.minimum_reach_distance_m = torch.full(object_shape, torch.inf, device=env.device)
+        self.maximum_opposing_contact_force_n = torch.zeros(object_shape, device=env.device)
+        self.maximum_lift_clearance_m = torch.full(object_shape, -torch.inf, device=env.device)
+        self.ever_over_target = torch.zeros(object_shape, dtype=torch.bool, device=env.device)
+        self.ever_inside_target = torch.zeros_like(self.ever_over_target)
+        self.inside_target = torch.zeros_like(self.ever_over_target)
 
         robot = env.scene["robot"]
         self._finger_body_ids = [
             [robot.body_names.index(f"{side}_dex1_finger_link_{index}") for index in (1, 2)]
             for side in HAND_NAMES
         ]
+        self._pinch_point_offset = torch.tensor(
+            self.protocol["stages"]["reach"]["pinch_point_offset_m"],
+            dtype=torch.float32,
+            device=env.device,
+        )
         env.g1d_evaluation = self
 
     @property
@@ -97,6 +110,12 @@ class StageEvaluator(ManagerTermBase):
         self.episode_serial[env_ids] += 1
         self.initial_object_pos[env_ids] = torch.nan
         self.geometric_sorted_fraction[env_ids] = 0
+        self.minimum_reach_distance_m[env_ids] = torch.inf
+        self.maximum_opposing_contact_force_n[env_ids] = 0
+        self.maximum_lift_clearance_m[env_ids] = -torch.inf
+        self.ever_over_target[env_ids] = False
+        self.ever_inside_target[env_ids] = False
+        self.inside_target[env_ids] = False
 
     def _finger_forces(self):
         """Return filtered normal-force magnitudes as (env, hand, finger, object)."""
@@ -136,9 +155,16 @@ class StageEvaluator(ManagerTermBase):
         starting = self.steps == 0
         self.initial_object_pos[starting] = local_pos[starting]
 
-        pinch_pos = torch.stack(
-            [robot.data.body_pos_w[:, body_ids].mean(dim=1) for body_ids in self._finger_body_ids], dim=1
-        )
+        pinch_positions = []
+        for body_ids in self._finger_body_ids:
+            body_pos = robot.data.body_pos_w[:, body_ids]
+            body_quat = robot.data.body_quat_w[:, body_ids]
+            offset = self._pinch_point_offset.view(1, 1, 3).expand_as(body_pos)
+            world_offset = quat_apply(
+                body_quat.reshape(-1, 4), offset.reshape(-1, 3)
+            ).reshape_as(body_pos)
+            pinch_positions.append((body_pos + world_offset).mean(dim=1))
+        pinch_pos = torch.stack(pinch_positions, dim=1)
         distances = torch.stack(
             [point_surface_distance(pinch_pos, world_pos[:, i], quat[:, i], item)
              for i, item in enumerate(self.items)],
@@ -146,6 +172,7 @@ class StageEvaluator(ManagerTermBase):
         )
         reach_cfg = self.protocol["stages"]["reach"]
         closest = distances.min(dim=1).values
+        self.minimum_reach_distance_m = torch.minimum(self.minimum_reach_distance_m, closest)
         reach_limit = torch.where(
             self.raw[:, :, REACH],
             torch.full_like(closest, reach_cfg["exit_distance_m"]),
@@ -156,6 +183,10 @@ class StageEvaluator(ManagerTermBase):
         finger_forces = self._finger_forces()
         grasp_cfg = self.protocol["stages"]["grasp"]
         both_fingers = (finger_forces >= grasp_cfg["minimum_contact_force_n"]).all(dim=2)
+        opposing_contact_force = finger_forces.min(dim=2).values.max(dim=1).values
+        self.maximum_opposing_contact_force_n = torch.maximum(
+            self.maximum_opposing_contact_force_n, opposing_contact_force
+        )
         gripper_open = joint_state(env)[:, [7, 15]]
         hand_grasp = both_fingers & (
             gripper_open[:, :, None] <= grasp_cfg["maximum_gripper_open_fraction"]
@@ -166,6 +197,9 @@ class StageEvaluator(ManagerTermBase):
             [world_extent(quat[:, i], item)[:, 2] for i, item in enumerate(self.items)], dim=1
         )
         bottom_clearance = local_pos[:, :, 2] - extent_z - self.settings["table"]["height"]
+        self.maximum_lift_clearance_m = torch.maximum(
+            self.maximum_lift_clearance_m, bottom_clearance
+        )
         lifted = bottom_clearance >= self.protocol["stages"]["lift"]["table_clearance_m"]
 
         boxes = {box["name"]: box for box in self.settings["bins"]}
@@ -189,6 +223,9 @@ class StageEvaluator(ManagerTermBase):
                     )
 
         place_cfg = self.protocol["stages"]["place"]
+        self.ever_over_target |= transport
+        self.ever_inside_target |= target_geometry
+        self.inside_target.copy_(target_geometry)
         stable = (lin_speed <= place_cfg["maximum_linear_speed_m_s"]) & (
             ang_speed <= place_cfg["maximum_angular_speed_rad_s"]
         )
@@ -236,13 +273,16 @@ class StageEvaluator(ManagerTermBase):
         self.raw.copy_(conditions)
         self.steps += 1
 
-        all_placed = self.achieved[:, :, PLACE].all(dim=1)
-        self.task_success_dwell_s = torch.where(
-            all_placed,
-            self.task_success_dwell_s + env.step_dt,
-            torch.zeros_like(self.task_success_dwell_s),
+        terminal_placed = target_geometry & stable
+        if self.protocol["task_success"]["require_release"]:
+            terminal_placed &= ~release_contact
+        all_sorted = terminal_placed.all(dim=1)
+        self.task_success_dwell_s, self.success = advance_condition_dwell(
+            all_sorted,
+            self.task_success_dwell_s,
+            self.protocol["task_success"]["dwell_s"],
+            env.step_dt,
         )
-        self.success = self.task_success_dwell_s + 1e-7 >= self.protocol["task_success"]["dwell_s"]
         if self.protocol["task_success"]["terminate_episode"]:
             return self.success.clone()
         return torch.zeros_like(self.success)

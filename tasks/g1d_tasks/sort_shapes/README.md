@@ -127,7 +127,7 @@ The environment evaluates every object with five ordered, monotonic stages:
 
 | Stage | Condition |
 | --- | --- |
-| Reach | Either gripper's pinch point stays within the configured distance of the object surface |
+| Reach | Either gripper's configured local pinch point stays within the configured distance of the object surface |
 | Grasp | Both opposing fingers of one gripper contact the same object while the gripper is sufficiently closed |
 | Lift | The bottom of the object stays above the tabletop by the configured clearance |
 | Transport | The object centre moves over its target bin opening |
@@ -137,10 +137,13 @@ Each stage begins accumulating dwell time only after the previous stage was
 credited. A broken condition resets that stage's dwell timer. Credited stages
 remain credited for the rest of the episode. The partial success rate (PSR) is
 the weighted mean of credited stages over all configured objects. Binary success
-requires every object to complete `place`, followed by the task success dwell.
-The evaluator also counts drops after lifting and stable placements in a wrong
-bin. These metrics use simulator state and contact sensors and are available
-only in `scene_state`; they are not policy inputs.
+is evaluated independently from that diagnostic history: every object must be
+stable and fully inside its target bin, with no finger contact when
+`task_success.require_release` is enabled, for the task success dwell. A missed
+reach or contact event therefore does not hide a physically completed task. The
+evaluator also counts drops after lifting and stable placements in a wrong bin.
+These metrics use simulator state and contact sensors and are available only in
+`scene_state`; they are not policy inputs.
 
 Thresholds, dwell times, weights, timeout, automatic success termination, and
 logging are configured in [configs/evaluation.json](configs/evaluation.json).
@@ -158,8 +161,9 @@ python run_g1d_sort.py --device cpu --enable_cameras \
 Each completed, timed-out, manually reset, or closed episode is appended as one
 JSON object to `logs/g1d_evaluation/episodes.jsonl`. The record contains binary
 success, task and per-object PSR, stage completion times, geometric sorting
-fraction, drops, wrong-bin events, duration, seed, and scene/evaluation config
-hashes. `rt/reset_pose/cmd` value `"1"` closes the current evaluation episode,
+fraction, drops, wrong-bin events, closest reach distance, opposing-finger force,
+maximum lift clearance, duration, seed, and scene/evaluation config hashes.
+`rt/reset_pose/cmd` value `"1"` closes the current evaluation episode,
 randomizes the objects, and restarts its timeout without moving the robot.
 
 Inspect the latest episode:

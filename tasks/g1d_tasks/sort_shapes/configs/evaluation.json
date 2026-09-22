@@ -6,6 +6,7 @@
     "reach": {
       "enter_distance_m": 0.06,
       "exit_distance_m": 0.08,
+      "pinch_point_offset_m": [0.11, 0.0, 0.0],
       "dwell_s": 0.10,
       "weight": 0.15
     },
@@ -38,6 +39,7 @@
   },
   "task_success": {
     "dwell_s": 0.25,
+    "require_release": true,
     "terminate_episode": true
   },
   "failures": {

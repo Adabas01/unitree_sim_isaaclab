@@ -46,6 +46,14 @@ def load_evaluation_settings(path=DEFAULT_EVALUATION):
     exit_distance = _number(stages["reach"], "exit_distance_m", "stages.reach")
     if exit_distance < enter:
         raise ValueError("stages.reach.exit_distance_m must be at least enter_distance_m")
+    pinch_offset = stages["reach"].setdefault("pinch_point_offset_m", [0.11, 0.0, 0.0])
+    if (
+        not isinstance(pinch_offset, list)
+        or len(pinch_offset) != 3
+        or any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+               for value in pinch_offset)
+    ):
+        raise ValueError("stages.reach.pinch_point_offset_m must contain three finite numbers")
     _number(stages["grasp"], "minimum_contact_force_n", "stages.grasp")
     _number(stages["grasp"], "maximum_gripper_open_fraction", "stages.grasp", maximum=1.0)
     _number(stages["lift"], "table_clearance_m", "stages.lift")
@@ -62,6 +70,9 @@ def load_evaluation_settings(path=DEFAULT_EVALUATION):
     success = cfg.get("task_success")
     if not isinstance(success, dict) or type(success.get("terminate_episode")) is not bool:
         raise ValueError("task_success.terminate_episode must be boolean")
+    success.setdefault("require_release", True)
+    if type(success["require_release"]) is not bool:
+        raise ValueError("task_success.require_release must be boolean")
     _number(success, "dwell_s", "task_success")
     failures = cfg.get("failures")
     if not isinstance(failures, dict):

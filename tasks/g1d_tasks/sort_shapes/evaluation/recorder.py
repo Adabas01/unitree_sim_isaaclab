@@ -69,6 +69,26 @@ class EvaluationRecorder(RecorderTerm):
                 "partial_success": float(per_object_score[env_id, object_index].item()),
                 "drop_count": int(evaluator.drop_count[env_id, object_index].item()),
                 "wrong_bin_count": int(evaluator.wrong_bin_count[env_id, object_index].item()),
+                "diagnostics": {
+                    "minimum_reach_surface_distance_m": float(
+                        evaluator.minimum_reach_distance_m[env_id, object_index].item()
+                    ),
+                    "maximum_opposing_contact_force_n": float(
+                        evaluator.maximum_opposing_contact_force_n[env_id, object_index].item()
+                    ),
+                    "maximum_lift_clearance_m": float(
+                        evaluator.maximum_lift_clearance_m[env_id, object_index].item()
+                    ),
+                    "ever_over_target_bin": bool(
+                        evaluator.ever_over_target[env_id, object_index].item()
+                    ),
+                    "ever_inside_target_bin": bool(
+                        evaluator.ever_inside_target[env_id, object_index].item()
+                    ),
+                    "final_inside_target_bin": bool(
+                        evaluator.inside_target[env_id, object_index].item()
+                    ),
+                },
             })
 
         record = {

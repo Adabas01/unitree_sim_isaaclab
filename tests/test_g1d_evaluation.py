@@ -120,6 +120,14 @@ class EvaluationStateMachineTests(unittest.TestCase):
         self.assertFalse(bool(achieved.any()))
         self.assertFalse(bool(newly.any()))
 
+    def test_task_success_dwell_uses_current_task_state(self):
+        dwell = torch.tensor([0.20, 0.20])
+        dwell, complete = state_machine.advance_condition_dwell(
+            torch.tensor([True, False]), dwell, required_dwell_s=0.25, dt=0.05
+        )
+        torch.testing.assert_close(dwell, torch.tensor([0.25, 0.0]))
+        self.assertEqual(complete.tolist(), [True, False])
+
 
 if __name__ == "__main__":
     unittest.main()

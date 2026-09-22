@@ -43,3 +43,16 @@ def advance_ordered_stages(achieved, dwell_s, conditions, required_dwell_s, dt):
         next_achieved[:, :, stage_index] |= gained
         newly_achieved[:, :, stage_index] = gained
     return next_achieved, next_dwell, newly_achieved
+
+
+def advance_condition_dwell(condition, dwell_s, required_dwell_s, dt):
+    """Accumulate dwell for a current-state condition, resetting on interruption."""
+    if condition.shape != dwell_s.shape:
+        raise ValueError("condition and dwell_s must have identical shapes")
+    if required_dwell_s < 0:
+        raise ValueError("required_dwell_s must be nonnegative")
+    if dt <= 0:
+        raise ValueError("dt must be positive")
+    next_dwell = torch.where(condition, dwell_s + dt, torch.zeros_like(dwell_s))
+    complete = condition & (next_dwell + 1e-7 >= required_dwell_s)
+    return next_dwell, complete

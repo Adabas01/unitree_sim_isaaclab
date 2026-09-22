@@ -91,6 +91,7 @@ try:
         image_server = run_isaacsim_server()
     reset_interval = max(1, round(args.reset_every / env.step_dt)) if args.reset_every else 0
     count = 0
+    episode_number = 1
     print("G1-D sorting scene ready. Cameras: front_camera, left_wrist_camera, right_wrist_camera, world_camera.", flush=True)
     if args.show_colliders:
         print("Collider visualization enabled in the interactive viewport.", flush=True)
@@ -116,8 +117,21 @@ try:
                 env.reset()
                 bridge.reset()
             _, _, terminated, truncated, _ = env.step(bridge.action() if bridge else hold)
+            done = terminated | truncated
+            if done.any():
+                reasons = []
+                if terminated.any():
+                    reasons.append("success")
+                if truncated.any():
+                    reasons.append("timeout")
+                episode_number += 1
+                print(
+                    f"[G1-D evaluation] Episode {episode_number - 1} ended "
+                    f"({'+'.join(reasons)}); episode {episode_number} was reset automatically.",
+                    flush=True,
+                )
             if bridge:
-                if (terminated | truncated).any():
+                if done.any():
                     bridge.reset()
                 bridge.update_state()
             if image_writer:
