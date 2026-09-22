@@ -238,6 +238,7 @@ class G1DSortEnvCfg(ManagerBasedRLEnvCfg):
         self.decimation = 4
         self.sim.dt = 1 / 120
         self.sim.render_interval = self.decimation
+        self.sim.physx.enable_ccd = self.sorting["robot"]["collisions"]["continuous_collision_detection"]
         self.sim.render.enable_direct_lighting = True
         self.sim.render.enable_shadows = True
         self.sim.render.enable_global_illumination = True

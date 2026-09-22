@@ -48,6 +48,9 @@ class PlacementTests(unittest.TestCase):
     def test_fixed_mode_and_variable_counts(self):
         cfg = copy.deepcopy(self.cfg)
         cfg["randomization"]["enabled"] = False
+        # Keep this count test independent of the user's default task layout.
+        cfg["randomization"]["x_range"] = [0.48, 0.82]
+        cfg["randomization"]["y_range"] = [-0.30, 0.30]
         cfg["cubes"]["count"] = 0
         cfg["cylinders"]["count"] = 8
         a = layout.sample_layout(cfg, random.Random(1))

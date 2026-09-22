@@ -26,16 +26,24 @@ def robot_config(settings):
         "Yaw_Joint": settings["torso_pitch"], "torso_Joint": settings["torso_yaw"],
     })
     gripper = settings["gripper_actuator"]
+    collisions = settings["collisions"]
     return ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
             usd_path=str(USD_PATH),
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                disable_gravity=False, max_depenetration_velocity=0.5,
+                disable_gravity=False,
+                max_depenetration_velocity=0.5,
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True,
+                contact_offset=collisions["contact_offset_m"],
+                rest_offset=collisions["rest_offset_m"],
             ),
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-                fix_root_link=True, enabled_self_collisions=False,
+                fix_root_link=True,
+                enabled_self_collisions=collisions["self_collisions"],
                 solver_position_iteration_count=16, solver_velocity_iteration_count=4,
             ),
         ),

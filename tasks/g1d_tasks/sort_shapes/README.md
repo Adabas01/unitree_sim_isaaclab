@@ -222,6 +222,9 @@ front of the robot, +Y to its left, and +Z upward.
 | `robot.arm_positions` | Initial left-arm 7 values followed by right-arm 7 values, in radians |
 | `robot.lift_positions` | Extension of the two lift joints, each from 0 to 0.21 m |
 | `robot.torso_pitch`, `torso_yaw` | Parked torso pose |
+| `robot.collisions.self_collisions` | Prevent the arms and hands from passing through other robot links |
+| `robot.collisions.continuous_collision_detection` | Reduce tunnelling through objects during fast arm motion |
+| `robot.collisions.contact_offset_m`, `rest_offset_m` | PhysX contact-generation and resting separation for imported robot colliders |
 | `robot.gripper_actuator.velocity_limit_m_s` | Maximum simulated finger speed; raise this to shorten open/close time |
 | `robot.gripper_actuator.stiffness_n_m`, `damping_n_s_m` | Position-controller response for the prismatic finger joints |
 | `robot.gripper_actuator.effort_limit_n` | Maximum simulated finger actuator force |
@@ -236,6 +239,18 @@ the physics scene. Reset changes only object poses and velocities. The sampler
 checks whole object footprints, including cube yaw, and excludes both boxes;
 impossible packing requests fail with an error. Keep the spawn region clear of
 the robot when moving the table or changing its initial pose.
+
+The imported model has collision shapes on the torso, arms, wrist links, Dex1
+bases, and fingers. To inspect the shapes in the main Isaac Sim viewport, run:
+
+```bash
+python run_g1d_sort.py --device cpu --enable_cameras --show-colliders
+```
+
+The colored collider overlay is diagnostic and does not appear in the simulated
+camera observations. If self-collision produces resting jitter, first inspect
+the overlapping shapes with this overlay; disabling `self_collisions` restores
+the permissive behavior but also allows the arms to pass through the body.
 
 The same `--seed` reproduces the sequence of requested layouts on the same
 setup. Physics/rendering are not guaranteed to be bitwise deterministic.

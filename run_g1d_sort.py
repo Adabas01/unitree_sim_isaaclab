@@ -31,6 +31,7 @@ parser.add_argument("--sdk", action="store_true", help="Enable G1 arm/torso-yaw 
 parser.add_argument("--dds-interface", default=None, help="DDS network interface; default uses SDK autodetection")
 parser.add_argument("--command-timeout", type=float, default=0.5, help="Hold measured joint positions after this many seconds without commands")
 parser.add_argument("--stream-cameras", action="store_true", help="Publish head/wrist images through the existing teleimager server")
+parser.add_argument("--show-colliders", action="store_true", help="Show PhysX collision shapes in the interactive viewport")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 if args.steps < 0 or args.reset_every < 0 or not 0 < args.command_timeout < float("inf"):
@@ -53,6 +54,9 @@ try:
     import gymnasium as gym
     import torch
     from PIL import Image
+    if args.show_colliders:
+        import carb
+        carb.settings.get_settings().set_int("/persistent/physics/visualizationDisplayColliders", 2)
     if args.sdk:
         from unitree_sdk2py.core.channel import ChannelFactoryInitialize
         ChannelFactoryInitialize(1, args.dds_interface)
@@ -88,6 +92,8 @@ try:
     reset_interval = max(1, round(args.reset_every / env.step_dt)) if args.reset_every else 0
     count = 0
     print("G1-D sorting scene ready. Cameras: front_camera, left_wrist_camera, right_wrist_camera, world_camera.", flush=True)
+    if args.show_colliders:
+        print("Collider visualization enabled in the interactive viewport.", flush=True)
     if evaluation["logging"]["enabled"]:
         print(f"Evaluation output: {env.g1d_evaluation_recorder.output_path}", flush=True)
     print("SDK control enabled; waiting for commands." if bridge else "Preview holds the starting pose; add --sdk for SDK control.", flush=True)

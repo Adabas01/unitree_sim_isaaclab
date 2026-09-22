@@ -93,6 +93,23 @@ def load_settings(path=DEFAULT_SCENE):
         raise ValueError("Each lift position must be within [0, 0.21] metres")
     if not -0.04363 <= robot["torso_pitch"] <= 2.3562 or not -2.7053 <= robot["torso_yaw"] <= 2.7053:
         raise ValueError("Torso pose exceeds the URDF joint limits")
+    collisions = robot.setdefault("collisions", {})
+    if not isinstance(collisions, dict):
+        raise ValueError("robot.collisions must be an object")
+    collisions.setdefault("self_collisions", True)
+    collisions.setdefault("continuous_collision_detection", True)
+    collisions.setdefault("contact_offset_m", 0.002)
+    collisions.setdefault("rest_offset_m", 0.0)
+    for key in ("self_collisions", "continuous_collision_detection"):
+        if type(collisions[key]) is not bool:
+            raise ValueError(f"robot.collisions.{key} must be boolean")
+    _numbers(
+        [collisions["contact_offset_m"], collisions["rest_offset_m"]],
+        2,
+        "robot collision offsets",
+    )
+    if not 0 <= collisions["rest_offset_m"] <= collisions["contact_offset_m"]:
+        raise ValueError("Robot collision offsets must satisfy 0 <= rest_offset_m <= contact_offset_m")
     boxes = cfg["bins"]
     names = [box["name"] for box in boxes]
     if len(boxes) != 2 or len(set(names)) != 2:

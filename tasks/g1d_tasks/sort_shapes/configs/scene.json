@@ -7,6 +7,12 @@
     "torso_pitch": 0.0,
     "torso_yaw": 0.0,
     "arm_positions": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    "collisions": {
+      "self_collisions": true,
+      "continuous_collision_detection": true,
+      "contact_offset_m": 0.002,
+      "rest_offset_m": 0.0
+    },
     "gripper_actuator": {
       "velocity_limit_m_s": 0.4,
       "stiffness_n_m": 1000.0,
