@@ -100,6 +100,7 @@ try:
             env,
             timeout=args.command_timeout,
             reset_hold=args.reset_command_hold,
+            controller_alignment=cfg.sorting["robot"]["controller_alignment"],
         )
     if args.stream_cameras:
         from tools.shared_memory_utils import MultiImageWriter

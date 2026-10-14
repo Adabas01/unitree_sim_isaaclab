@@ -66,11 +66,18 @@ It holds the initial pose until commands arrive. Each command stream has its
 own timeout (default 0.5 s, `--command-timeout`); on expiry, the measured position
 is latched and held. A whole-task reset clears cached commands.
 
-This is a **position-control SDK bridge**, like the existing simulator's arm
-action path: command `q` is used, while per-packet `kp`, `kd`, `dq` and `tau` do
-not replace the simulation's configured gains. It does not emulate the real
-motor firmware, full dynamic IMU measurements, or AGV wheel/lift RPCs. The base,
-lift and torso pitch remain parked; torso yaw can be commanded through slot 12.
+The default `robot.controller_alignment: false` restores the original simulator
+controller: the bridge consumes position `q` and ignores packet `dq`, `kp`, `kd`,
+and `tau`. Its original arm gains and limits are retained. Set the scene option
+to `true` and pass `--controller-alignment true` to the client to consume the
+full motor packet and use the gains/limits selected from the local G1-29 client
+and pinned URDF.
+
+See [controller alignment notes](CONTROLLER_ALIGNMENT.md) for the before/after
+values, implementation, checks, and remaining differences. This does not emulate
+the full motor firmware, dynamic IMU measurements, or AGV wheel/lift RPCs.
+Dex1 remains a position adapter with separately configured simulated gains.
+The base, lift and torso pitch remain parked; torso yaw uses slot 12.
 
 For head/wrist camera streaming, add `--stream-cameras` to the simulator command.
 It uses `teleimager/cam_config_server.yaml` and the existing ZMQ ports 55555
@@ -239,6 +246,7 @@ front of the robot, +Y to its left, and +Z upward.
 | `randomization.x_range`, `y_range`, `yaw_range` | Allowed object-center positions and upright yaw rotations |
 | `randomization.clearance` | Minimum object-to-object, object-to-bin and table-edge separation |
 | `robot.arm_positions` | Initial left-arm 7 values followed by right-arm 7 values, in radians |
+| `robot.controller_alignment` | `false` selects the original position-only controller; `true` enables packet-level gains, velocity, and feedforward |
 | `robot.lift_positions` | Extension of the two lift joints, each from 0 to 0.21 m |
 | `robot.torso_pitch`, `torso_yaw` | Parked torso pose |
 | `robot.collisions.self_collisions` | Prevent the arms and hands from passing through other robot links |
@@ -331,9 +339,12 @@ moving slowly. Cubes target the brown box and cylinders the green box by default
 remains a simple geometric training signal; the separate evaluator supplies the
 ordered contact-aware metrics and success termination.
 
-Actuator gains and friction are initial simulation settings. Self-collisions
-are disabled; the original URDF has no collisions on the two moving lift links.
-The task does not yet establish realistic grasp performance or motor-level
+In legacy mode, arm and torso-yaw gains are the original simulation values and
+packet gains are ignored. In aligned mode, defaults match the local SDK client
+and incoming SDK gains override them. Friction, motor dynamics, and grasp
+performance have not been identified against real trajectories. Self-collisions
+follow `robot.collisions.self_collisions`; the original URDF has no collisions
+on the two moving lift links. The task does not yet establish motor-level
 equivalence with the physical robot.
 
 ## Checks

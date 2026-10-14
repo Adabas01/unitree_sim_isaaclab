@@ -55,6 +55,9 @@ def load_settings(path=DEFAULT_SCENE):
     if table["height"] <= table["thickness"]:
         raise ValueError("Table height must exceed its thickness")
     robot = cfg["robot"]
+    robot.setdefault("controller_alignment", False)
+    if type(robot["controller_alignment"]) is not bool:
+        raise ValueError("robot.controller_alignment must be boolean")
     _numbers([robot["base_height"], robot["torso_pitch"], robot["torso_yaw"]], 3, "robot pose")
     _numbers(robot["lift_positions"], 2, "robot.lift_positions")
     robot.setdefault("arm_positions", [0.0] * 14)

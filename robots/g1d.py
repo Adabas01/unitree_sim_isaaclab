@@ -17,6 +17,17 @@ def robot_config(settings):
             f"Import the G1-D URDF first; missing {USD_PATH}. "
             "See tasks/g1d_tasks/sort_shapes/README.md"
         )
+    aligned = settings.get("controller_alignment", False)
+    arm_gains = (80.0, 3.0) if aligned else (160.0, 8.0)
+    arm_velocity = 37.0 if aligned else 3.0
+    wrist_damping = 1.5 if aligned else 2.0
+    wrist_effort = ({".*_wrist_roll_joint": 25.0, ".*_wrist_(pitch|yaw)_joint": 5.0}
+                     if aligned else 5.0)
+    wrist_velocity = ({".*_wrist_roll_joint": 37.0, ".*_wrist_(pitch|yaw)_joint": 22.0}
+                       if aligned else 3.0)
+    torso_stiffness = {"Yaw_Joint": 2000.0, "torso_Joint": 300.0} if aligned else 2000.0
+    torso_damping = {"Yaw_Joint": 80.0, "torso_Joint": 3.0} if aligned else 80.0
+    torso_velocity = {"Yaw_Joint": 1.0, "torso_Joint": 5.0} if aligned else 1.0
     q = dict(zip(ARM_JOINTS, settings.get("arm_positions", [0.0] * len(ARM_JOINTS)), strict=True))
     q.update({name: GRIPPER_OPEN for name in FINGER_JOINTS})
     q.update({
@@ -54,11 +65,13 @@ def robot_config(settings):
         actuators={
             "arms": ImplicitActuatorCfg(
                 joint_names_expr=[".*_shoulder_.*_joint", ".*_elbow_joint"],
-                stiffness=160.0, damping=8.0, effort_limit_sim=25.0, velocity_limit_sim=3.0,
+                stiffness=arm_gains[0], damping=arm_gains[1],
+                effort_limit_sim=25.0, velocity_limit_sim=arm_velocity,
             ),
             "wrists": ImplicitActuatorCfg(
                 joint_names_expr=[".*_wrist_.*_joint"],
-                stiffness=40.0, damping=2.0, effort_limit_sim=5.0, velocity_limit_sim=3.0,
+                stiffness=40.0, damping=wrist_damping,
+                effort_limit_sim=wrist_effort, velocity_limit_sim=wrist_velocity,
             ),
             "grippers": ImplicitActuatorCfg(
                 joint_names_expr=FINGER_JOINTS,
@@ -72,8 +85,10 @@ def robot_config(settings):
                 stiffness=100000.0, damping=1000.0, effort_limit_sim=500.0, velocity_limit_sim=0.05,
             ),
             "torso": ImplicitActuatorCfg(
-                joint_names_expr=["Yaw_Joint", "torso_Joint"], stiffness=2000.0, damping=80.0,
-                effort_limit_sim={"Yaw_Joint": 80.0, "torso_Joint": 30.0}, velocity_limit_sim=1.0,
+                joint_names_expr=["Yaw_Joint", "torso_Joint"],
+                stiffness=torso_stiffness, damping=torso_damping,
+                effort_limit_sim={"Yaw_Joint": 80.0, "torso_Joint": 30.0},
+                velocity_limit_sim=torso_velocity,
             ),
             "wheels": ImplicitActuatorCfg(
                 joint_names_expr=["Left_Wheel_Joint", "Right_Wheel_Joint"],

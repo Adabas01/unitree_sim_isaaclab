@@ -20,6 +20,9 @@ class PlacementTests(unittest.TestCase):
     def setUp(self):
         self.cfg = layout.load_settings()
 
+    def test_legacy_controller_is_default(self):
+        self.assertFalse(self.cfg["robot"]["controller_alignment"])
+
     def test_seeded_layouts_fit_without_object_or_bin_overlap(self):
         self.cfg["randomization"]["enabled"] = True
         objects = layout.objects(self.cfg)

@@ -1,4 +1,4 @@
-"""G1-D SDK position-control bridge using the existing G1/Dex1 wire protocol.
+"""G1-D SDK bridge using the existing G1/Dex1 wire protocol.
 
 Callbacks only copy commands. All physics access happens on the simulation
 thread; a separate 100 Hz publisher sends immutable state snapshots.
@@ -7,6 +7,7 @@ thread; a separate 100 Hz publisher sends immutable state snapshots.
 import math
 import threading
 import time
+from typing import NamedTuple
 
 import torch
 from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber
@@ -19,10 +20,21 @@ from unitree_sdk2py.utils.crc import CRC
 from robots.g1d_joints import ARM_JOINTS, FINGER_JOINTS, GRIPPER_CLOSED, GRIPPER_OPEN, joint_state
 
 
+class ArmCommand(NamedTuple):
+    timestamp: float
+    q: list[float]
+    active: list[bool]
+    weight: float
+    dq: list[float]
+    kp: list[float]
+    kd: list[float]
+    tau: list[float]
+
+
 class G1DBridge:
     SDK_GRIPPER_OPEN = 5.4
 
-    def __init__(self, env, timeout=0.5, reset_hold=1.1):
+    def __init__(self, env, timeout=0.5, reset_hold=1.1, controller_alignment=False):
         if env.num_envs != 1:
             raise ValueError("One DDS robot requires exactly one simulation environment")
         if not math.isfinite(reset_hold) or reset_hold < 0:
@@ -31,6 +43,7 @@ class G1DBridge:
         self.robot = env.scene["robot"]
         self.timeout = timeout
         self.reset_hold = reset_hold
+        self.controller_alignment = controller_alignment
         self._lock = threading.Lock()
         self._commands = {}
         self._reset_requested = None
@@ -43,6 +56,8 @@ class G1DBridge:
         self._arm_ids = [self.robot.joint_names.index(n) for n in ARM_JOINTS]
         self._finger_ids = [self.robot.joint_names.index(n) for n in FINGER_JOINTS]
         self._yaw_id = self.robot.joint_names.index("torso_Joint")
+        if self.controller_alignment:
+            self._init_motor_targets()
         self._torso_id = self.robot.body_names.index("torso_link")
         self._held_action = joint_state(env).clone()
         self._held_yaw = self.robot.data.joint_pos[:, self._yaw_id].clone()
@@ -69,7 +84,8 @@ class G1DBridge:
         self._thread.start()
         print(
             f"[G1-D SDK] Domain 1; arm slots 15–28, torso yaw 12; Dex1 0=closed, "
-            f"5.4=open; post-reset command hold={self.reset_hold:.2f}s",
+            f"5.4=open; controller={'aligned' if self.controller_alignment else 'legacy position-only'}; "
+            f"post-reset command hold={self.reset_hold:.2f}s",
             flush=True,
         )
 
@@ -83,13 +99,24 @@ class G1DBridge:
             active = [msg.motor_cmd[i].mode == 1 for i in slots]
             if any(on and (not math.isfinite(value) or abs(value) > 100) for on, value in zip(active, q)):
                 raise ValueError("Invalid position target")
+            if self.controller_alignment:
+                fields = {name: [float(getattr(msg.motor_cmd[i], name)) for i in slots]
+                          for name in ("dq", "kp", "kd", "tau")}
+                for name, values in fields.items():
+                    if any(on and (not math.isfinite(value) or (name in ("kp", "kd") and value < 0))
+                           for on, value in zip(active, values)):
+                        raise ValueError(f"Invalid {name} command")
+            else:
+                fields = {name: [0.0] * len(slots) for name in ("dq", "kp", "kd", "tau")}
             weight = float(msg.motor_cmd[29].q) if topic == "rt/arm_sdk" else 1.0
             if not math.isfinite(weight):
                 raise ValueError("Invalid arm_sdk weight")
             with self._lock:
                 if time.monotonic() < self._ignore_commands_until:
                     return
-                self._commands["arms"] = (time.monotonic(), q, active, max(0.0, min(1.0, weight)))
+                self._commands["arms"] = ArmCommand(
+                    time.monotonic(), q, active, max(0.0, min(1.0, weight)), **fields,
+                )
                 self.accepted_commands += 1
         except (ValueError, IndexError, TypeError, OverflowError):
             self.rejected_commands += 1
@@ -117,6 +144,49 @@ class G1DBridge:
             value, self._reset_requested = self._reset_requested, None
         return value
 
+    def _init_motor_targets(self):
+        """Cache named joint mappings and fallback gains; called on the sim thread."""
+        self._motor_ids = [*self._arm_ids, self._yaw_id]
+        self._default_kp = self.robot.data.default_joint_stiffness[:, self._motor_ids].clone()
+        self._default_kd = self.robot.data.default_joint_damping[:, self._motor_ids].clone()
+        self._motor_actuators = []
+        for actuator in self.robot.actuators.values():
+            ids = list(range(len(self.robot.joint_names)))[actuator.joint_indices] if isinstance(
+                actuator.joint_indices, slice
+            ) else list(actuator.joint_indices)
+            pairs = [(local, self._motor_ids.index(joint)) for local, joint in enumerate(ids)
+                     if joint in self._motor_ids]
+            if pairs:
+                if not actuator.is_implicit_model:
+                    raise ValueError("G1-D SDK motor commands require implicit joint drives")
+                local_ids, motor_ids = zip(*pairs)
+                self._motor_actuators.append((actuator, list(local_ids), list(motor_ids)))
+        self._last_kp = None
+        self._last_kd = None
+
+    def _apply_motor_targets(self, command=None):
+        """Use PhysX's single PD drive plus SDK feedforward, with no extra PD torque."""
+        kp, kd = self._default_kp.clone(), self._default_kd.clone()
+        dq, tau = torch.zeros_like(kp), torch.zeros_like(kp)
+        if command is not None:
+            for j, active in enumerate(command.active):
+                if active:
+                    kp[:, j], kd[:, j] = command.kp[j], command.kd[j]
+                    dq[:, j] = command.weight * command.dq[j]
+                    tau[:, j] = command.weight * command.tau[j]
+        for name, values in (("kp", kp), ("kd", kd)):
+            previous = getattr(self, f"_last_{name}")
+            if previous is None or not torch.equal(previous, values):
+                attribute = "stiffness" if name == "kp" else "damping"
+                getattr(self.robot, f"write_joint_{attribute}_to_sim")(values, joint_ids=self._motor_ids)
+                # Isaac Lab's write_*_to_sim does not update actuator-model buffers.
+                # Keep these in sync so reported approximate torques use the same gains.
+                for actuator, local_ids, motor_ids in self._motor_actuators:
+                    getattr(actuator, attribute)[:, local_ids] = values[:, motor_ids]
+                setattr(self, f"_last_{name}", values)
+        self.robot.set_joint_velocity_target(dq, joint_ids=self._motor_ids)
+        self.robot.set_joint_effort_target(tau, joint_ids=self._motor_ids)
+
     def reset(self):
         with self._lock:
             self._commands.clear()
@@ -125,6 +195,9 @@ class G1DBridge:
         self._held_action = joint_state(self.env).clone()
         self._held_yaw = self.robot.data.joint_pos[:, self._yaw_id].clone()
         self._fresh.clear()
+        if self.controller_alignment:
+            self._last_kp = self._last_kd = None
+            self._apply_motor_targets()
         self.env._g1d_torso_yaw_target = self._held_yaw.clone()
         self.update_state()
 
@@ -153,7 +226,7 @@ class G1DBridge:
         yaw = self._held_yaw.clone()
         arm = commands.get("arms")
         if "arms" in fresh:
-            _, q, active, weight = arm
+            q, active, weight = arm.q, arm.active, arm.weight
             for j, dest in enumerate(arm_destinations):
                 if active[j]:
                     action[:, dest] = measured[:, dest] + weight * (q[j] - measured[:, dest])
@@ -165,6 +238,8 @@ class G1DBridge:
                 action[:, index] = command[1]
         # Stale streams hold the measured position, independently for arms and each gripper.
         self.env._g1d_torso_yaw_target = yaw
+        if self.controller_alignment:
+            self._apply_motor_targets(arm if "arms" in fresh else None)
         return action
 
     def update_state(self):

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "enabled": true,
-  "episode_timeout_s": 120.0,
+  "episode_timeout_s": 30.0,
   "stages": {
     "reach": {
       "enter_distance_m": 0.06,

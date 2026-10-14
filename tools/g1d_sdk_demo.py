@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--interface", default=None, help="Match the simulator's --dds-interface")
     parser.add_argument("--arm-topic", choices=["rt/lowcmd", "rt/arm_sdk"], default="rt/lowcmd")
+    parser.add_argument("--controller-alignment", action="store_true", help="Send the aligned per-joint gains")
     parser.add_argument("--check", action="store_true", help="Assert motion and gripper feedback for an integration check")
     args = parser.parse_args()
     ChannelFactoryInitialize(1, args.interface)
@@ -54,8 +55,13 @@ def main():
         for i in [12, *range(15, 29)]:
             command.motor_cmd[i].mode = 1
             command.motor_cmd[i].q = initial[i]
-            command.motor_cmd[i].kp = 80.0
-            command.motor_cmd[i].kd = 3.0
+            if args.controller_alignment:
+                wrist = i in (19, 20, 21, 26, 27, 28)
+                command.motor_cmd[i].kp = 300.0 if i == 12 else (40.0 if wrist else 80.0)
+                command.motor_cmd[i].kd = 1.5 if wrist else 3.0
+            else:
+                command.motor_cmd[i].kp = 80.0
+                command.motor_cmd[i].kd = 3.0
         if args.arm_topic == "rt/arm_sdk":
             command.motor_cmd[29].q = 1.0
         grippers = [MotorCmds_(), MotorCmds_()]

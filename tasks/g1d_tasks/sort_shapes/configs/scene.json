@@ -1,7 +1,8 @@
 {
   "room": {"size": [6.0, 6.0, 3.0], "ambient_intensity": 100.0, "ceiling_intensity": 2500.0},
-  "table": {"center_xy": [0.52, 0.0], "size_xy": [0.8, 1.2], "height": 0.7, "thickness": 0.04},
+  "table": {"center_xy": [0.54, 0.0], "size_xy": [0.8, 1.2], "height": 0.75, "thickness": 0.04},
   "robot": {
+    "controller_alignment": true,
     "base_height": 0.112,
     "lift_positions": [0.0, 0.0],
     "torso_pitch": 0.0,
@@ -20,21 +21,26 @@
       "effort_limit_n": 20.0
     },
     "gripper_control": {
-      "mode": "binary",
-      "close_threshold": 0.45,
-      "open_threshold": 0.55
+      "mode": "continuous",
+      "close_threshold": 0.7,
+      "open_threshold": 0.8
     }
   },
-  "cubes": {"count": 2, "size": [0.055, 0.055, 0.055], "mass": 0.04, "color": [0.04, 0.65, 0.08], "target_bin": "brown_box"},
+  "cubes": {"count": 2, "size": [0.045, 0.045, 0.045], "mass": 0.4, "color": [0.04, 0.65, 0.08], "target_bin": "brown_box"},
   "cylinders": {"count": 1, "radius": 0.025, "height": 0.1, "mass": 0.05, "color": [0.75, 0.025, 0.025], "target_bin": "green_box"},
   "bins": [
-    {"name": "green_box", "center_xy": [0.3, -0.4], "inner_size": [0.25, 0.26, 0.10], "wall_thickness": 0.012, "color": [0.04, 0.40, 0.08]},
+    {"name": "green_box", "center_xy": [0.3, -0.4], "inner_size": [0.25, 0.26, 0.10], "wall_thickness": 0.012, "color": [0.02, 0.25, 0.17]},
     {"name": "brown_box", "center_xy": [0.3, 0.4], "inner_size": [0.25, 0.26, 0.10], "wall_thickness": 0.012, "color": [0.36, 0.19, 0.07]}
   ],
-  "randomization": {"enabled": false, "x_range": [0.33, 0.43], "y_range": [-0.28, 0.2], "yaw_range": [-3.141592653589793, 3.141592653589793], "clearance": 0.015, "fixed_seed": 22},
+  "randomization": {"enabled": true, "x_range": [0.25, 0.4], "y_range": [-0.1, 0.1], "yaw_range": [-3.141592653589793, 3.141592653589793], "clearance": 0.015, "fixed_seed": 2},
   "cameras": {
     "width": 640, "height": 480,
-    "head": {"position": [0.095, 0.0, 0.43], "forward": [0.65, 0.0, -0.76], "focal_length": 7.6, "horizontal_aperture": 20.0},
+    "head": {
+      "position": [0.06, 0.03, 0.47],
+      "forward": [0.65, 0.0, -0.76],
+      "focal_length": 6.6,
+      "horizontal_aperture": 20.0
+    },
     "left_wrist": {"position": [0.065, 0.0, 0.045], "forward": [1.0, 0.0, -0.466], "focal_length": 7.6, "horizontal_aperture": 20.0},
     "right_wrist": {"position": [0.065, 0.0, 0.045], "forward": [1.0, 0.0, -0.466], "focal_length": 7.6, "horizontal_aperture": 20.0}
   }
