@@ -12,34 +12,47 @@ from isaaclab.managers import EventTermCfg, ObservationGroupCfg, ObservationTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import CameraCfg, ContactSensorCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import quat_from_matrix
+from isaaclab.utils.math import quat_from_euler_xyz, quat_from_matrix
 
 from robots.g1d import robot_config
 from . import mdp
+from .calibration_targets import target_assets
+from .camera_lens import isaac_intrinsic_matrix, virtual_camera
 from .evaluation import EvaluationRecorderManagerCfg, StageEvaluator, load_evaluation_settings
 from .layout import load_settings, objects, sample_layout
 from .visuals import apply_robot_materials
 
 
-def camera_rotation(forward):
-    """Quaternion in Isaac's world camera convention: local +X forward, +Z up."""
+def camera_rotation(forward, up=(0.0, 0.0, 1.0)):
+    """Quaternion in Isaac's world camera convention: local +X forward, +Z up (roll from `up`)."""
     x = torch.tensor(forward, dtype=torch.float64)
     x /= x.norm()
-    y = torch.linalg.cross(torch.tensor([0.0, 0.0, 1.0], dtype=x.dtype), x)
+    y = torch.linalg.cross(torch.tensor(up, dtype=x.dtype), x)
     y /= y.norm()
     z = torch.linalg.cross(x, y)
     return tuple(quat_from_matrix(torch.stack((x, y, z), dim=-1)).tolist())
 
 
 def camera_config(path, config, resolution):
-    return CameraCfg(
-        prim_path=path, update_period=0.0, width=resolution[0], height=resolution[1], data_types=["rgb"],
-        spawn=sim_utils.PinholeCameraCfg(
+    """Pinhole camera from focal_length/horizontal_aperture, or, with calibrated intrinsics, the centred virtual
+    pinhole camera whose renders mdp.camera_rgb warps into the calibrated lens (camera_lens.py)."""
+    if "intrinsics" in config:
+        focal, width, height = virtual_camera(config["intrinsics"])
+        spawn = sim_utils.PinholeCameraCfg.from_intrinsic_matrix(
+            isaac_intrinsic_matrix(focal, width, height), width, height, clipping_range=(0.01, 20.0), focal_length=1.0,
+        )
+        resolution = width, height
+    else:
+        spawn = sim_utils.PinholeCameraCfg(
             focal_length=config["focal_length"], horizontal_aperture=config["horizontal_aperture"],
             clipping_range=(0.01, 20.0),
-        ),
+        )
+    return CameraCfg(
+        prim_path=path, update_period=0.0, width=resolution[0], height=resolution[1], data_types=["rgb"],
+        spawn=spawn,
         offset=CameraCfg.OffsetCfg(
-            pos=tuple(config["position"]), rot=camera_rotation(config["forward"]), convention="world",
+            pos=tuple(config["position"]), rot=camera_rotation(config["forward"], config.get("up", (0.0, 0.0, 1.0))),
+            convention="world",
         ),
     )
 
@@ -86,6 +99,34 @@ def build_scene(settings, evaluation):
     for i in range(3):
         box(f"cabinet_handle_{i}", (0.18, 0.025, 0.025), (-0.5 + i * 0.6, cabinet_y + 0.285, 0.65), (0.05, 0.06, 0.07))
     scene.robot = robot_config(settings["robot"])
+    # Wrist camera mounts (missing in the imported URDF): boxes fixed to each Dex1 base link, pose given for
+    # the left gripper (position, roll/pitch/yaw) and mirrored for the right. Visual and collision only; their
+    # mass is not added here (the link keeps its explicit mass), the measured load belongs in robot.payloads.
+    collisions = settings["robot"]["collisions"]
+    for side, mirror in (("left", 1.0), ("right", -1.0)):
+        for part in settings["robot"]["camera_mount"]:
+            x, y, z = part["position"]
+            roll, pitch, yaw = part["rpy"]
+            rotation = quat_from_euler_xyz(*(torch.tensor([v]) for v in (mirror * roll, pitch, mirror * yaw)))[0]
+            setattr(scene, f"{side}_camera_mount_{part['name']}", AssetBaseCfg(
+                prim_path=f"{{ENV_REGEX_NS}}/Robot/{side}_dex1_base_link/camera_mount_{part['name']}",
+                spawn=sim_utils.CuboidCfg(
+                    size=tuple(part["size"]),
+                    collision_props=sim_utils.CollisionPropertiesCfg(
+                        collision_enabled=True, contact_offset=collisions["contact_offset_m"],
+                        rest_offset=collisions["rest_offset_m"],
+                    ),
+                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=tuple(part["color"]), roughness=0.6),
+                ),
+                init_state=AssetBaseCfg.InitialStateCfg(pos=(x, mirror * y, z), rot=tuple(rotation.tolist())),
+            ))
+    # ChArUco board / ArUco markers at their calibrated poses (visual only), for sim-vs-real image comparison.
+    for name, parent, usd_path, position, quat in target_assets(settings["calibration_targets"]):
+        setattr(scene, name, AssetBaseCfg(
+            prim_path=f"{{ENV_REGEX_NS}}/Robot/{parent}/{name}",
+            spawn=sim_utils.UsdFileCfg(usd_path=usd_path),
+            init_state=AssetBaseCfg.InitialStateCfg(pos=tuple(position), rot=tuple(quat)),
+        ))
     table = settings["table"]
     tx, ty = table["center_xy"]
     sx, sy = table["size_xy"]
@@ -202,6 +243,7 @@ class ObservationsCfg:
 @configclass
 class EventsCfg:
     robot_materials = EventTermCfg(func=apply_robot_materials, mode="startup")
+    robot_payloads = EventTermCfg(func=mdp.apply_robot_payloads, mode="startup")
     reset_robot_and_objects = EventTermCfg(func=base_mdp.reset_scene_to_default, mode="reset")
     randomize_objects = EventTermCfg(func=mdp.reset_objects, mode="reset")
 

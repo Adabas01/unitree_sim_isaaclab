@@ -33,6 +33,7 @@ parser.add_argument("--dds-interface", default=None, help="DDS network interface
 parser.add_argument("--command-timeout", type=float, default=0.5, help="Hold measured joint positions after this many seconds without commands")
 parser.add_argument("--reset-command-hold", type=float, default=1.1, help="Ignore SDK commands for this many seconds after an episode reset")
 parser.add_argument("--stream-cameras", action="store_true", help="Publish head/wrist images through the existing teleimager server")
+parser.add_argument("--camera-profile", help="Camera set from the scene's cameras.profiles (e.g. manual, calibrated)")
 parser.add_argument("--show-colliders", action="store_true", help="Show PhysX collision shapes in the interactive viewport")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
@@ -66,7 +67,7 @@ try:
         ChannelFactoryInitialize(1, args.dds_interface)
     import tasks  # noqa: F401
     from tasks.g1d_tasks.sort_shapes.layout import load_settings, objects
-    from tasks.g1d_tasks.sort_shapes.mdp import joint_state
+    from tasks.g1d_tasks.sort_shapes.mdp import camera_rgb, joint_state
     from tasks.g1d_tasks.sort_shapes.env_cfg import G1DSortEnvCfg
     from tasks.g1d_tasks.sort_shapes.evaluation import load_evaluation_settings
 
@@ -77,7 +78,7 @@ try:
         evaluation["logging"]["path"] = str(args.evaluation_output.resolve())
     if args.evaluation_run_label is not None:
         evaluation["logging"]["run_label"] = args.evaluation_run_label
-    cfg = G1DSortEnvCfg(sorting=load_settings(args.scene_config), evaluation=evaluation)
+    cfg = G1DSortEnvCfg(sorting=load_settings(args.scene_config, args.camera_profile), evaluation=evaluation)
     cfg.sim.device = args.device
     cfg.seed = args.seed
     env = gym.make("Isaac-Sort-Shapes-G1D-Dex1-Joint", cfg=cfg).unwrapped
@@ -107,14 +108,16 @@ try:
         from teleimager.image_server import run_isaacsim_server
         image_writer = MultiImageWriter(enable_jpeg=True)
         image_writer.write_images({
-            key: env.scene[name].data.output["rgb"][0, ..., :3].cpu().numpy()
+            key: camera_rgb(env, name)[0].cpu().numpy()
             for key, name in (("head", "front_camera"), ("left", "left_wrist_camera"), ("right", "right_wrist_camera"))
         })
         image_server = run_isaacsim_server()
     reset_interval = max(1, round(args.reset_every / env.step_dt)) if args.reset_every else 0
     count = 0
     episode_number = 1
-    print("G1-D sorting scene ready. Cameras: front_camera, left_wrist_camera, right_wrist_camera, world_camera.", flush=True)
+    print("G1-D sorting scene ready. Cameras: front_camera, left_wrist_camera, right_wrist_camera, world_camera; "
+          f"camera profile {cfg.sorting['cameras']['profile']!r}; controller_alignment "
+          f"{cfg.sorting['robot']['controller_alignment']}.", flush=True)
     if args.show_colliders:
         print("Collider visualization enabled in the interactive viewport.", flush=True)
     if evaluation["logging"]["enabled"]:
@@ -174,7 +177,7 @@ try:
                 bridge.update_state()
             if image_writer:
                 image_writer.write_images({
-                    key: env.scene[name].data.output["rgb"][0, ..., :3].cpu().numpy()
+                    key: camera_rgb(env, name)[0].cpu().numpy()
                     for key, name in (("head", "front_camera"), ("left", "left_wrist_camera"), ("right", "right_wrist_camera"))
                 })
             count += 1
@@ -183,8 +186,7 @@ try:
             if args.capture_dir and count == min(60, args.steps or 60):
                 args.capture_dir.mkdir(parents=True, exist_ok=True)
                 for name in ("front_camera", "left_wrist_camera", "right_wrist_camera", "world_camera"):
-                    sensor = env.scene[name]
-                    rgb = sensor.data.output["rgb"][0, ..., :3].cpu().numpy()
+                    rgb = camera_rgb(env, name)[0].cpu().numpy()
                     Image.fromarray(rgb).save(args.capture_dir / f"{name}.png")
                 manifest = dict(
                     task="Isaac-Sort-Shapes-G1D-Dex1-Joint", seed=args.seed, control_step=count,

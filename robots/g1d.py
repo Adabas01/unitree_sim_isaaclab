@@ -8,7 +8,23 @@ import isaaclab.sim as sim_utils
 
 
 USD_PATH = Path(__file__).resolve().parents[1] / "assets/robots/g1d-dex1/usd/g1d_dex1.usd"
-from .g1d_joints import ARM_JOINTS, FINGER_JOINTS, GRIPPER_CLOSED, GRIPPER_OPEN
+from .g1d_joints import ARM_JOINTS, ARM_SUFFIXES, FINGER_JOINTS, GRIPPER_CLOSED, GRIPPER_OPEN
+
+# robot.joint_dynamics key -> Isaac Lab actuator field. PhysX (Isaac Sim 5) takes friction as an effort [Nm]
+# and the viscous coefficient in Nm s/rad, armature in kg m^2 (checked with eval/sim2real/sysid.py --mode units).
+JOINT_DYNAMICS_FIELDS = {
+    "static_friction_nm": "friction",
+    "dynamic_friction_nm": "dynamic_friction",
+    "viscous_friction_nm_s_per_rad": "viscous_friction",
+    "armature_kg_m2": "armature",
+}
+
+
+def joint_dynamics(settings, suffixes):
+    """Actuator fields from robot.joint_dynamics for these arm joints (both arms); absent keys keep the USD values."""
+    dynamics = settings.get("joint_dynamics", {})
+    return {field: {f".*_{name}_joint": float(dynamics[key][name]) for name in suffixes}
+            for key, field in JOINT_DYNAMICS_FIELDS.items() if key in dynamics}
 
 
 def robot_config(settings):
@@ -67,11 +83,13 @@ def robot_config(settings):
                 joint_names_expr=[".*_shoulder_.*_joint", ".*_elbow_joint"],
                 stiffness=arm_gains[0], damping=arm_gains[1],
                 effort_limit_sim=25.0, velocity_limit_sim=arm_velocity,
+                **joint_dynamics(settings, ARM_SUFFIXES[:4]),
             ),
             "wrists": ImplicitActuatorCfg(
                 joint_names_expr=[".*_wrist_.*_joint"],
                 stiffness=40.0, damping=wrist_damping,
                 effort_limit_sim=wrist_effort, velocity_limit_sim=wrist_velocity,
+                **joint_dynamics(settings, ARM_SUFFIXES[4:]),
             ),
             "grippers": ImplicitActuatorCfg(
                 joint_names_expr=FINGER_JOINTS,

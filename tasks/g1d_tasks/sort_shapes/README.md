@@ -257,6 +257,9 @@ front of the robot, +Y to its left, and +Z upward.
 | `robot.gripper_actuator.effort_limit_n` | Maximum simulated finger actuator force |
 | `robot.gripper_control.mode` | `continuous` follows 0–1 commands; `binary` commands fully closed or open |
 | `robot.gripper_control.close_threshold`, `open_threshold` | Binary switching thresholds; values between them retain the preceding state |
+| `robot.payloads` | Point masses added to links at startup (`body`, `mass_kg`, `com_m` in the link frame); the link's mass, centre of mass and inertia change. Default: the load fitted from real-robot holds (gripper, wrist camera, mount, cables) |
+| `robot.camera_mount` | (Overridden by the camera profile's `camera_mount` if it has one.) Boxes fixed to both Dex1 base links (`name`, `size`, `position`, `rpy`, `color`; left gripper frame, mirrored for the right). Visual and collision only, no mass. Default: estimated wrist camera housing and bracket, front face 2 mm behind the wrist camera lens |
+| `robot.joint_dynamics` | Arm joint friction and armature, one value per joint name (`shoulder_pitch` ... `wrist_yaw`, both arms): `static_friction_nm`, `dynamic_friction_nm`, `viscous_friction_nm_s_per_rad`, `armature_kg_m2`. Absent keys keep the USD values (all zero). Fitted to the real robot by the umbrella repo's `eval/sim2real/sysid.py` |
 | `room.size` | Room X/Y/Z dimensions |
 | `room.ambient_intensity`, `ceiling_intensity` | Ambient fill and overhead lighting |
 
@@ -295,13 +298,28 @@ at scene creation; the original USD is unchanged.
 | `world_camera` | Environment root | Overview for inspection |
 
 All four produce 640×480 RGB images. Change resolution in `cameras.width/height`.
-Each head/wrist camera has editable `position`, `forward`, `focal_length`, and
-`horizontal_aperture` fields. Position and viewing direction are expressed in
-the parent link frame. Image up is derived from that frame's +Z direction.
-These are initial viewing positions, not calibrated replicas of the real
-mounts, lenses, distortion or exposure. Camera sensors do not add a physical
-housing or mass to the robot. Match the real camera extrinsics/intrinsics before
-interpreting policy evaluation as representative of the real robot.
+
+Head and wrist cameras come in named **camera profiles** (`cameras.profiles`); `cameras.profile` selects the
+default and `--camera-profile <name>` overrides it per run. The active profile is printed at start and stored
+in every evaluation record (`camera_profile`, next to `controller_alignment`). Always record which profile an
+evaluation used.
+
+| Profile | Cameras | Wrist housing |
+| --- | --- | --- |
+| `manual` | Used before 2026-10-27. Initial hand-set viewing positions: pinhole lenses (`focal_length`, `horizontal_aperture`), no roll, no distortion | Estimated, lens pitched 25° |
+| `calibrated` | Default since 2026-10-27. Real G1-D cameras calibrated on 2026-10-27 (ChArUco + arm kinematics; master-thesis `eval/camera_calib`, `docs/camera_calibration.md`): calibrated pose incl. roll and the OpenCV lens model | Moved behind the calibrated lens (pitched 31°) |
+
+Per camera: `position` and `forward` in the parent link frame, optional `up` (image up; default the parent's
++Z), and either `focal_length` + `horizontal_aperture` or calibrated `intrinsics` (`model` `pinhole` =
+OpenCV radial-tangential or `fisheye` = OpenCV equidistant, `K`, `D`, `size`, `render_scale`). Omniverse
+cameras support neither lens distortion nor an off-centre principal point, so a camera with `intrinsics` is
+rendered as a centred pinhole covering all of its pixel rays and warped into the calibrated lens
+(`camera_lens.py`; applied in `mdp.camera_rgb`, i.e. to the policy observations, the camera stream and
+`--capture-dir`). A profile may contain `camera_mount`, which replaces `robot.camera_mount`. A scene with the
+cameras directly under `cameras` (no `profiles`) is one profile named `default`.
+
+`calibration_targets` (optional) adds a textured ChArUco board and ArUco markers at given poses in link
+frames (visual only), for comparing sim and real images at the same arm poses.
 
 ## Task interface
 

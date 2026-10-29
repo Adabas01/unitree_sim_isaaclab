@@ -14,6 +14,7 @@ from robots.g1d_joints import (
     joint_indices,
     joint_state,
 )
+from .camera_lens import LensWarp
 from .layout import objects, sample_layout
 from .evaluation.config import STAGE_NAMES
 from .evaluation.predicates import fully_inside_bin
@@ -92,9 +93,20 @@ class G1DSortActionCfg(ActionTermCfg):
     asset_name: str = "robot"
 
 
+CAMERA_SETTINGS = {"front_camera": "head", "left_wrist_camera": "left_wrist", "right_wrist_camera": "right_wrist"}
+
+
 def camera_rgb(env, name):
-    """Unnormalized uint8 RGB, with an environment dimension."""
-    return env.scene[name].data.output["rgb"][..., :3].clone()
+    """Unnormalized uint8 RGB, with an environment dimension. Cameras with calibrated intrinsics are rendered as
+    a virtual pinhole and warped into the calibrated lens here (camera_lens.py)."""
+    rgb = env.scene[name].data.output["rgb"][..., :3]
+    camera = env.cfg.sorting["cameras"].get(CAMERA_SETTINGS.get(name), {})
+    if "intrinsics" not in camera:
+        return rgb.clone()
+    warps = env.__dict__.setdefault("_g1d_lens_warps", {})
+    if name not in warps:
+        warps[name] = LensWarp(camera["intrinsics"])
+    return warps[name](rgb)
 
 
 def object_poses(env):
@@ -120,6 +132,52 @@ def reset_objects(env, env_ids):
         state[:, 7:] = 0.0
         asset.write_root_pose_to_sim(state[:, :7], env_ids=env_ids)
         asset.write_root_velocity_to_sim(state[:, 7:], env_ids=env_ids)
+
+
+def apply_robot_payloads(env, env_ids):
+    """Add the point masses of robot.payloads to their links (mass, centre of mass and inertia).
+
+    Used for load the imported URDF lacks, e.g. the wrist camera, its mount and cables. Each payload is
+    a mass at a point given in the link frame; the link's centre of mass moves to the combined one and
+    its inertia is shifted with the parallel-axis theorem.
+    """
+    payloads = env.cfg.sorting["robot"]["payloads"]
+    if not payloads:
+        return
+    robot = env.scene["robot"]
+    view = robot.root_physx_view
+    ids = torch.arange(env.scene.num_envs, device="cpu")
+    masses, coms, inertias = view.get_masses(), view.get_coms().clone(), view.get_inertias().clone()
+    eye = torch.eye(3, dtype=coms.dtype)
+
+    def parallel_axis(mass, offset):  # inertia of a point mass about a point `offset` away
+        return mass[:, None, None] * ((offset * offset).sum(-1)[:, None, None] * eye - offset[:, :, None] * offset[:, None, :])
+
+    for payload in payloads:
+        if payload["body"] not in robot.body_names:
+            raise ValueError(f"robot.payloads: no body {payload['body']!r}; bodies are {robot.body_names}")
+        b = robot.body_names.index(payload["body"])
+        m0, c0 = masses[:, b].clone(), coms[:, b, :3].clone()
+        m, p = payload["mass_kg"], torch.tensor(payload["com_m"], dtype=coms.dtype).expand_as(c0)
+        c1 = (m0[:, None] * c0 + m * p) / (m0 + m)[:, None]
+        # PhysX gives the inertia in the centre-of-mass frame (orientation: quaternion x, y, z, w).
+        x, y, z, w = coms[:, b, 3:].unbind(-1)
+        rot = torch.stack((
+            1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w),
+            2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+            2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y),
+        ), dim=-1).reshape(-1, 3, 3)
+        inertia_body = rot @ inertias[:, b].reshape(-1, 3, 3) @ rot.transpose(1, 2)
+        inertia_body = (inertia_body + parallel_axis(m0, c0 - c1)
+                        + parallel_axis(torch.full_like(m0, m), p - c1))
+        inertias[:, b] = (rot.transpose(1, 2) @ inertia_body @ rot).reshape(-1, 9)
+        masses[:, b] = m0 + m
+        coms[:, b, :3] = c1
+        print(f"[G1-D] Payload {m:.3f} kg on {payload['body']} at {payload['com_m']}: link mass "
+              f"{float(m0[0]):.3f} -> {float(m0[0] + m):.3f} kg", flush=True)
+    view.set_masses(masses, ids)
+    view.set_coms(coms, ids)
+    view.set_inertias(inertias, ids)
 
 
 def sorted_fraction(env):
