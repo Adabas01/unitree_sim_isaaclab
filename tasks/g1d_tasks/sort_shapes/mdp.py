@@ -8,9 +8,8 @@ from isaaclab.managers import ActionTerm, ActionTermCfg
 from isaaclab.utils import configclass
 
 from robots.g1d_joints import (
-    GRIPPER_CLOSED,
-    GRIPPER_OPEN,
     binary_gripper_targets,
+    grip_to_finger,
     joint_indices,
     joint_state,
 )
@@ -64,7 +63,7 @@ class G1DSortAction(ActionTerm):
                 self._gripper_control["open_threshold"],
             )
             grip_command = self._binary_grip
-        grip = GRIPPER_CLOSED + grip_command * (GRIPPER_OPEN - GRIPPER_CLOSED)
+        grip = grip_to_finger(grip_command)
         self._targets[:, self._finger_ids] = grip.repeat_interleave(2, dim=1)
         if hasattr(self._env, "_g1d_torso_yaw_target"):
             yaw_id = self._asset.joint_names.index("torso_Joint")

@@ -31,7 +31,7 @@ from unitree_sdk2py.utils.crc import CRC
 
 SIM_STEP_ACK_TOPIC = "rt/sim_step/ack"
 
-from robots.g1d_joints import ARM_JOINTS, FINGER_JOINTS, GRIPPER_CLOSED, GRIPPER_OPEN, joint_state
+from robots.g1d_joints import ARM_JOINTS, FINGER_JOINTS, REAL_GAP_PER_RAW_M, SDK_GRIPPER_OPEN, finger_to_grip, joint_state
 
 
 class ArmCommand(NamedTuple):
@@ -46,7 +46,7 @@ class ArmCommand(NamedTuple):
 
 
 class G1DBridge:
-    SDK_GRIPPER_OPEN = 5.4
+    SDK_GRIPPER_OPEN = SDK_GRIPPER_OPEN
 
     def __init__(self, env, timeout=0.5, reset_hold=1.1, controller_alignment=False, lockstep=False,
                  lockstep_timeout=0.25, lockstep_idle=1.0, lockstep_command_wait=0.05):
@@ -342,10 +342,10 @@ class G1DBridge:
         msg.imu_state.accelerometer = quat_apply_inverse(quat, gravity)[0].cpu().tolist()
         msg.crc = self.crc.Crc(msg)
         messages = [msg]
-        metres_per_sdk_unit = (GRIPPER_OPEN - GRIPPER_CLOSED) / self.SDK_GRIPPER_OPEN
+        metres_per_sdk_unit = REAL_GAP_PER_RAW_M / 2  # finger travel per raw unit (both fingers move)
         for ids in (self._finger_ids[:2], self._finger_ids[2:]):
             motor = unitree_go_msg_dds__MotorState_()
-            motor.q = max(0.0, min(self.SDK_GRIPPER_OPEN, (sum(q[i] for i in ids) / 2 - GRIPPER_CLOSED) / metres_per_sdk_unit))
+            motor.q = float(finger_to_grip(torch.tensor(sum(q[i] for i in ids) / 2))) * self.SDK_GRIPPER_OPEN
             motor.dq = sum(dq[i] for i in ids) / (2 * metres_per_sdk_unit)
             motor.tau_est = sum(tau[i] for i in ids) * metres_per_sdk_unit
             message = MotorStates_()

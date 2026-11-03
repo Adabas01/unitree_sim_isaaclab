@@ -8,7 +8,7 @@ import isaaclab.sim as sim_utils
 
 
 USD_PATH = Path(__file__).resolve().parents[1] / "assets/robots/g1d-dex1/usd/g1d_dex1.usd"
-from .g1d_joints import ARM_JOINTS, ARM_SUFFIXES, FINGER_JOINTS, GRIPPER_CLOSED, GRIPPER_OPEN
+from .g1d_joints import ARM_JOINTS, ARM_SUFFIXES, FINGER_JOINTS, grip_to_finger
 
 # robot.joint_dynamics key -> Isaac Lab actuator field. PhysX (Isaac Sim 5) takes friction as an effort [Nm]
 # and the viscous coefficient in Nm s/rad, armature in kg m^2 (checked with eval/sim2real/sysid.py --mode units).
@@ -45,7 +45,7 @@ def robot_config(settings):
     torso_damping = {"Yaw_Joint": 80.0, "torso_Joint": 3.0} if aligned else 80.0
     torso_velocity = {"Yaw_Joint": 1.0, "torso_Joint": 5.0} if aligned else 1.0
     q = dict(zip(ARM_JOINTS, settings.get("arm_positions", [0.0] * len(ARM_JOINTS)), strict=True))
-    q.update({name: GRIPPER_OPEN for name in FINGER_JOINTS})
+    q.update({name: grip_to_finger(1.0) for name in FINGER_JOINTS})
     q.update({
         "Left_Wheel_Joint": 0.0, "Right_Wheel_Joint": 0.0,
         "LZ_mt_Joint": settings["lift_positions"][0], "LZ_it_Joint": settings["lift_positions"][1],
