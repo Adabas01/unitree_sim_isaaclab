@@ -2,6 +2,18 @@
 
 Callbacks only copy commands. All physics access happens on the simulation
 thread; a separate 100 Hz publisher sends immutable state snapshots.
+
+Command timing. Free-running (the default of Unitree's sim, kept for comparison):
+each control step starts with the newest command that has arrived, so a command
+sent in answer to a state acts one control step later than on the real robot.
+Lockstep: the state is published as soon as it is computed, and the next step
+waits until the client has answered it. The client (master-thesis deploy/
+g1_robot.py, sim only) publishes the tick of the state it answered on
+SIM_STEP_ACK_TOPIC after setting its targets; its controllers publish those
+targets from their own threads (arms 250 Hz, grippers 200 Hz), so the bridge then
+also waits for the second arm and gripper command received after the acknowledgement
+(the first can come from a loop iteration that read the target before it changed).
+With no client acknowledging (idle, between rollouts, old clients), the sim runs free.
 """
 
 import math
@@ -16,6 +28,8 @@ from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowCmd_, LowState_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_, MotorStates_
 from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
 from unitree_sdk2py.utils.crc import CRC
+
+SIM_STEP_ACK_TOPIC = "rt/sim_step/ack"
 
 from robots.g1d_joints import ARM_JOINTS, FINGER_JOINTS, GRIPPER_CLOSED, GRIPPER_OPEN, joint_state
 
@@ -34,17 +48,30 @@ class ArmCommand(NamedTuple):
 class G1DBridge:
     SDK_GRIPPER_OPEN = 5.4
 
-    def __init__(self, env, timeout=0.5, reset_hold=1.1, controller_alignment=False):
+    def __init__(self, env, timeout=0.5, reset_hold=1.1, controller_alignment=False, lockstep=False,
+                 lockstep_timeout=0.25, lockstep_idle=1.0, lockstep_command_wait=0.05):
         if env.num_envs != 1:
             raise ValueError("One DDS robot requires exactly one simulation environment")
         if not math.isfinite(reset_hold) or reset_hold < 0:
             raise ValueError("reset_hold must be finite and nonnegative")
+        if not all(0 < value < float("inf") for value in (lockstep_timeout, lockstep_idle, lockstep_command_wait)):
+            raise ValueError("Lockstep timeouts must be positive and finite")
         self.env = env
         self.robot = env.scene["robot"]
         self.timeout = timeout
         self.reset_hold = reset_hold
         self.controller_alignment = controller_alignment
         self._lock = threading.Lock()
+        self._changed = threading.Condition(self._lock)
+        self._write_lock = threading.Lock()
+        self.lockstep = lockstep
+        self.lockstep_timeout = lockstep_timeout
+        self.lockstep_idle = lockstep_idle
+        self.lockstep_command_wait = lockstep_command_wait
+        self.lockstep_stats = {"answered": 0, "no_answer": 0, "no_command": 0, "free": 0}
+        self._ack = None
+        self._received = {}
+        self._published_tick = None
         self._commands = {}
         self._reset_requested = None
         self._state = None
@@ -79,13 +106,17 @@ class G1DBridge:
         subscriber = ChannelSubscriber("rt/reset_pose/cmd", String_)
         subscriber.Init(self._reset_command, 1)
         self.subscribers.append(subscriber)
+        subscriber = ChannelSubscriber(SIM_STEP_ACK_TOPIC, String_)
+        subscriber.Init(self._step_ack, 1)
+        self.subscribers.append(subscriber)
         self.update_state()
         self._thread = threading.Thread(target=self._publish_loop, name="g1d_state", daemon=True)
         self._thread.start()
         print(
             f"[G1-D SDK] Domain 1; arm slots 15–28, torso yaw 12; Dex1 0=closed, "
             f"5.4=open; controller={'aligned' if self.controller_alignment else 'legacy position-only'}; "
-            f"post-reset command hold={self.reset_hold:.2f}s",
+            f"post-reset command hold={self.reset_hold:.2f}s; command timing="
+            f"{'lockstep' if self.lockstep else 'free-running (commands act one control step late)'}",
             flush=True,
         )
 
@@ -118,6 +149,8 @@ class G1DBridge:
                     time.monotonic(), q, active, max(0.0, min(1.0, weight)), **fields,
                 )
                 self.accepted_commands += 1
+                self._received["arms"] = self._received.get("arms", 0) + 1
+                self._changed.notify_all()
         except (ValueError, IndexError, TypeError, OverflowError):
             self.rejected_commands += 1
 
@@ -131,6 +164,8 @@ class G1DBridge:
                     return
                 self._commands[side] = (time.monotonic(), max(0.0, min(1.0, q / self.SDK_GRIPPER_OPEN)))
                 self.accepted_commands += 1
+                self._received[side] = self._received.get(side, 0) + 1
+                self._changed.notify_all()
         except (ValueError, IndexError, TypeError):
             self.rejected_commands += 1
 
@@ -138,6 +173,51 @@ class G1DBridge:
         if msg.data in ("1", "2"):
             with self._lock:
                 self._reset_requested = msg.data
+
+    def _step_ack(self, msg):
+        try:
+            tick = int(msg.data)
+        except (TypeError, ValueError):
+            return
+        with self._lock:
+            self._ack = (tick, time.monotonic(), dict(self._received))
+            self._changed.notify_all()
+
+    @staticmethod
+    def _tick_reached(tick, target):
+        """tick >= target on the 32-bit millisecond clock of LowState.tick."""
+        return (tick - target) % 2**32 < 2**31
+
+    def wait_for_reply(self):
+        """Lockstep: block until the client has answered the last published state (sim thread, before action()).
+
+        Returns at once when lockstep is off, no client acknowledged a step within `lockstep_idle` seconds, or
+        commands are ignored after a reset; otherwise after the acknowledgement and two newer commands on every
+        live stream, or after a timeout (counted in lockstep_stats; the step then uses the newest command).
+        """
+        if not self.lockstep or self._published_tick is None:
+            return
+        target = self._published_tick
+        with self._changed:
+            now = time.monotonic()
+            if self._ack is None or now - self._ack[1] > self.lockstep_idle or now < self._ignore_commands_until:
+                self.lockstep_stats["free"] += 1
+                return
+            if not self._changed.wait_for(lambda: self._tick_reached(self._ack[0], target), self.lockstep_timeout):
+                self.lockstep_stats["no_answer"] += 1
+                return
+            _, acked, counts = self._ack
+            live = [key for key, value in self._commands.items() if acked - value[0] <= self.timeout]
+            if self._changed.wait_for(
+                lambda: all(self._received.get(key, 0) >= counts.get(key, 0) + 2 for key in live),
+                self.lockstep_command_wait,
+            ):
+                self.lockstep_stats["answered"] += 1
+            else:
+                self.lockstep_stats["no_command"] += 1
+        waits = sum(self.lockstep_stats.values())
+        if waits % 1800 == 0:
+            print(f"[G1-D SDK] Lockstep steps: {self.lockstep_stats}", flush=True)
 
     def take_reset_request(self):
         with self._lock:
@@ -249,7 +329,7 @@ class G1DBridge:
         tau = robot.data.applied_torque[0].cpu().tolist()
         msg = unitree_hg_msg_dds__LowState_()
         msg.mode_machine = 0
-        msg.tick = int(self.env.common_step_counter * self.env.step_dt * 1000) % (2**32)
+        msg.tick = tick = int(self.env.common_step_counter * self.env.step_dt * 1000) % (2**32)
         for sdk_id, joint_id in zip([*range(15, 29), 12], [*self._arm_ids, self._yaw_id]):
             motor = msg.motor_state[sdk_id]
             motor.mode, motor.q, motor.dq, motor.tau_est = 1, q[joint_id], dq[joint_id], tau[joint_id]
@@ -273,19 +353,28 @@ class G1DBridge:
             messages.append(message)
         with self._lock:
             self._state = messages
+            self._published_tick = tick
+        if self.lockstep:
+            self._write(messages)
+
+    def _write(self, messages):
+        with self._write_lock:
+            for publisher, message in zip(self.publishers, messages):
+                publisher.Write(message)
 
     def _publish_loop(self):
         try:
             while not self._stop.is_set():
                 with self._lock:
                     messages = self._state
-                for publisher, message in zip(self.publishers, messages):
-                    publisher.Write(message)
+                self._write(messages)
                 self._stop.wait(0.01)
         except Exception as exc:
             self._error = exc
 
     def close(self):
+        if self.lockstep:
+            print(f"[G1-D SDK] Lockstep steps: {self.lockstep_stats}", flush=True)
         self._stop.set()
         self._thread.join(timeout=2)
         for channel in self.subscribers + self.publishers:

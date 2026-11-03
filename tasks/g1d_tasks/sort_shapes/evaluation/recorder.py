@@ -124,6 +124,7 @@ class EvaluationRecorder(RecorderTerm):
             "scene_config_hash": _hash(self._env.cfg.sorting),
             "camera_profile": self._env.cfg.sorting["cameras"]["profile"],
             "controller_alignment": self._env.cfg.sorting["robot"]["controller_alignment"],
+            "command_timing": getattr(self._env, "g1d_command_timing", None),
             "evaluation_config_hash": _hash({
                 key: value for key, value in self._env.cfg.evaluation.items() if key != "logging"
             }),

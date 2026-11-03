@@ -59,6 +59,7 @@ network interface in both processes. Existing G1 arm clients use motor slots
 | `rt/dex1/left/cmd`, `rt/dex1/right/cmd` | Command | `unitree_go/MotorCmds_`, one motor each |
 | `rt/dex1/left/state`, `rt/dex1/right/state` | State | `unitree_go/MotorStates_`, one motor each |
 | `rt/reset_pose/cmd` | Command | `std_msgs/String_`: `"1"` randomizes objects, `"2"` resets the whole task |
+| `rt/sim_step/ack` | Command | `std_msgs/String_`: the `LowState.tick` a client has answered (lockstep, below) |
 
 SDK gripper positions are **0=closed, 5.4=open**. The adapter converts these to
 the imported robot's finger travel. It uses named joints, not USD joint order.
@@ -66,7 +67,18 @@ It holds the initial pose until commands arrive. Each command stream has its
 own timeout (default 0.5 s, `--command-timeout`); on expiry, the measured position
 is latched and held. A whole-task reset clears cached commands.
 
-The default `robot.controller_alignment: false` restores the original simulator
+Command timing (`--command-timing`, default `lockstep`). Free-running (`free`,
+the original behaviour) starts each control step with the newest command that has
+arrived, so a command sent in answer to a state acts one control step (33 ms)
+later than on the real robot. In lockstep the state is published as soon as it is
+computed and the next step waits until the client has acknowledged it on
+`rt/sim_step/ack` and its controllers have sent the new targets (the clients in the
+thesis repo's `deploy/` do this); with no acknowledging client the sim runs free.
+The mode is printed at start-up and stored in every evaluation record
+(`command_timing`). The default `robot.joint_dynamics` (identified joint friction)
+assumes lockstep: with `free` the delay and the friction both slow the arm.
+
+`robot.controller_alignment: false` restores the original simulator
 controller: the bridge consumes position `q` and ignores packet `dq`, `kp`, `kd`,
 and `tau`. Its original arm gains and limits are retained. Set the scene option
 to `true` and pass `--controller-alignment true` to the client to consume the

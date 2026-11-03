@@ -1,12 +1,14 @@
 """CPU-only protocol checks; create no DDS channels and launch no simulator."""
 
 import threading
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
 import torch
 from unitree_sdk2py.idl.default import unitree_hg_msg_dds__LowCmd_, unitree_go_msg_dds__MotorCmd_
+from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_
 from unitree_sdk2py.utils.crc import CRC
 from dds.g1d_bridge import G1DBridge
@@ -41,11 +43,15 @@ class SDKMappingTests(unittest.TestCase):
         )
         self.env = SimpleNamespace(scene={"robot": self.robot})
         self.bridge = object.__new__(G1DBridge)
+        lock = threading.Lock()
         for key, value in dict(env=self.env, robot=self.robot, timeout=0.5, _error=None,
-                               _lock=threading.Lock(), _commands={}, _fresh=set(),
+                               _lock=lock, _changed=threading.Condition(lock), _commands={}, _fresh=set(),
                                _ignore_commands_until=0.0,
                                rejected_commands=0, accepted_commands=0,
-                               controller_alignment=True).items():
+                               controller_alignment=True, lockstep=False, lockstep_timeout=0.2,
+                               lockstep_idle=1.0, lockstep_command_wait=0.05, _ack=None, _received={}, _published_tick=None,
+                               lockstep_stats={"answered": 0, "no_answer": 0, "no_command": 0, "free": 0},
+                               ).items():
             setattr(self.bridge, key, value)
         self.bridge._yaw_id = names.index("torso_Joint")
         self.bridge._arm_ids = [names.index(n) for n in ARM_JOINTS]
@@ -246,6 +252,82 @@ class SDKMappingTests(unittest.TestCase):
         torch.testing.assert_close(self.robot.write_joint_stiffness_to_sim.call_args.args[0],
                                    self.bridge._default_kp)
         self.assertEqual(self.robot.set_joint_effort_target.call_args.args[0].abs().sum(), 0)
+
+
+class LockstepTests(SDKMappingTests):
+    """Waiting for the client's answer before the next control step (dds/g1d_bridge.py, Command timing)."""
+
+    def setUp(self):
+        super().setUp()
+        self.bridge.lockstep = True
+        self.bridge._published_tick = 1000
+
+    def ack(self, tick):
+        self.bridge._step_ack(String_(data=str(tick)))
+
+    def timed_wait(self):
+        start = time.perf_counter()
+        self.bridge.wait_for_reply()
+        return time.perf_counter() - start
+
+    def test_free_running_and_idle_clients_do_not_wait(self):
+        self.bridge.lockstep = False
+        self.assertLess(self.timed_wait(), 0.01)
+        self.bridge.lockstep = True
+        self.assertLess(self.timed_wait(), 0.01)  # no client has acknowledged a step yet
+        self.ack(967)
+        self.now.return_value = 101.5  # the client stopped acknowledging more than lockstep_idle ago
+        self.assertLess(self.timed_wait(), 0.01)
+        self.assertEqual(self.bridge.lockstep_stats["free"], 2)
+
+    def test_answered_step_needs_the_ack_and_a_newer_command_per_stream(self):
+        self.send(self.command())
+        self.grip("left", 0.0)
+        self.now.return_value = 100.01
+        self.ack(1000)
+        self.now.return_value = 100.02
+        self.send(self.command())
+        self.send(self.command())
+        self.grip("left", 1.0)
+        # the first command after the ack may still carry the old target: wait for the second
+        self.assertGreaterEqual(self.timed_wait(), 0.04)
+        self.assertEqual(self.bridge.lockstep_stats["no_command"], 1)
+        self.grip("left", 1.0)
+        self.assertLess(self.timed_wait(), 0.01)
+        self.assertEqual(self.bridge.lockstep_stats["answered"], 1)
+
+    def test_waits_for_an_answer_that_arrives_later(self):
+        self.send(self.command())
+        self.ack(967)  # the client is active, but has answered only the previous state
+
+        def client():
+            time.sleep(0.05)
+            self.now.return_value = 100.01
+            self.ack(1000)
+            self.now.return_value = 100.02
+            self.send(self.command())
+            self.send(self.command())
+
+        thread = threading.Thread(target=client)
+        thread.start()
+        waited = self.timed_wait()
+        thread.join()
+        self.assertGreaterEqual(waited, 0.04)
+        self.assertLess(waited, 0.15)
+        self.assertEqual(self.bridge.lockstep_stats["answered"], 1)
+
+    def test_missing_answer_times_out_and_post_reset_hold_runs_free(self):
+        self.send(self.command())
+        self.ack(967)
+        self.assertGreaterEqual(self.timed_wait(), 0.19)
+        self.assertEqual(self.bridge.lockstep_stats["no_answer"], 1)
+        self.bridge._ignore_commands_until = 101.0
+        self.assertLess(self.timed_wait(), 0.01)
+
+    def test_tick_comparison_wraps_like_lowstate_tick(self):
+        self.assertTrue(G1DBridge._tick_reached(5, 2**32 - 30))
+        self.assertFalse(G1DBridge._tick_reached(2**32 - 30, 5))
+        self.assertTrue(G1DBridge._tick_reached(1000, 1000))
 
 
 class BinaryGripperTests(unittest.TestCase):

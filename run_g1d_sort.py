@@ -32,6 +32,12 @@ parser.add_argument("--sdk", action="store_true", help="Enable G1 arm/torso-yaw 
 parser.add_argument("--dds-interface", default=None, help="DDS network interface; default uses SDK autodetection")
 parser.add_argument("--command-timeout", type=float, default=0.5, help="Hold measured joint positions after this many seconds without commands")
 parser.add_argument("--reset-command-hold", type=float, default=1.1, help="Ignore SDK commands for this many seconds after an episode reset")
+parser.add_argument(
+    "--command-timing", choices=("free", "lockstep"), default="lockstep",
+    help="free: each control step uses the newest command that has arrived, so commands act one control step "
+         "later than on the real robot; lockstep: wait for the client's answer to each published state "
+         "(clients from master-thesis deploy/ acknowledge each step). See dds/g1d_bridge.py",
+)
 parser.add_argument("--stream-cameras", action="store_true", help="Publish head/wrist images through the existing teleimager server")
 parser.add_argument("--camera-profile", help="Camera set from the scene's cameras.profiles (e.g. manual, calibrated)")
 parser.add_argument("--show-colliders", action="store_true", help="Show PhysX collision shapes in the interactive viewport")
@@ -102,7 +108,10 @@ try:
             timeout=args.command_timeout,
             reset_hold=args.reset_command_hold,
             controller_alignment=cfg.sorting["robot"]["controller_alignment"],
+            lockstep=args.command_timing == "lockstep",
         )
+    # Recorded with every evaluation episode; None without SDK control.
+    env.g1d_command_timing = args.command_timing if args.sdk else None
     if args.stream_cameras:
         from tools.shared_memory_utils import MultiImageWriter
         from teleimager.image_server import run_isaacsim_server
@@ -117,7 +126,7 @@ try:
     episode_number = 1
     print("G1-D sorting scene ready. Cameras: front_camera, left_wrist_camera, right_wrist_camera, world_camera; "
           f"camera profile {cfg.sorting['cameras']['profile']!r}; controller_alignment "
-          f"{cfg.sorting['robot']['controller_alignment']}.", flush=True)
+          f"{cfg.sorting['robot']['controller_alignment']}; command timing {env.g1d_command_timing}.", flush=True)
     if args.show_colliders:
         print("Collider visualization enabled in the interactive viewport.", flush=True)
     if evaluation["logging"]["enabled"]:
@@ -137,6 +146,8 @@ try:
             if not env.sim.is_playing():
                 env.sim.render()
                 continue
+            if bridge:
+                bridge.wait_for_reply()
             request = bridge.take_reset_request() if bridge else None
             if request == "1":
                 env.g1d_evaluation_recorder.write_pending("objects_reset")
@@ -173,13 +184,14 @@ try:
                     f"robot_pose_error={robot_pose_error:.6f}: {positions}",
                     flush=True,
                 )
-            if bridge:
-                bridge.update_state()
+            # Images first: in lockstep the client answers as soon as the state is out.
             if image_writer:
                 image_writer.write_images({
                     key: camera_rgb(env, name)[0].cpu().numpy()
                     for key, name in (("head", "front_camera"), ("left", "left_wrist_camera"), ("right", "right_wrist_camera"))
                 })
+            if bridge:
+                bridge.update_state()
             count += 1
             if not torch.isfinite(env.scene["robot"].data.joint_pos).all():
                 raise RuntimeError("Non-finite robot state")
