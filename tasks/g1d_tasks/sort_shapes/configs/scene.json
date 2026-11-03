@@ -1,6 +1,6 @@
 {
   "room": {"size": [6.0, 6.0, 3.0], "ambient_intensity": 100.0, "ceiling_intensity": 2500.0},
-  "table": {"center_xy": [0.54, 0.0], "size_xy": [0.8, 1.2], "height": 0.74, "thickness": 0.04},
+  "table": {"center_xy": [0.54, 0.0], "size_xy": [0.8, 1.2], "height": 0.76, "thickness": 0.04},
   "robot": {
     "controller_alignment": true,
     "base_height": 0.112,
@@ -29,13 +29,19 @@
       {"body": "left_dex1_base_link", "mass_kg": 0.687, "com_m": [-0.046, -0.005, -0.035]},
       {"body": "right_dex1_base_link", "mass_kg": 0.687, "com_m": [-0.046, 0.005, -0.035]}
     ],
+    "joint_dynamics": {
+      "static_friction_nm": {"shoulder_pitch": 0.026381, "shoulder_roll": 0.09202, "shoulder_yaw": 0.006678, "elbow": 0.446967, "wrist_roll": 0.335505, "wrist_pitch": 0.387704, "wrist_yaw": 0.106298},
+      "viscous_friction_nm_s_per_rad": {"shoulder_pitch": 2.874463, "shoulder_roll": 0.040214, "shoulder_yaw": 0.892571, "elbow": 0.003331, "wrist_roll": 0.175062, "wrist_pitch": 0.004652, "wrist_yaw": 0.007557},
+      "armature_kg_m2": {"shoulder_pitch": 0.002938, "shoulder_roll": 0.025898, "shoulder_yaw": 0.004069, "elbow": 0.00576, "wrist_roll": 0.054233, "wrist_pitch": 0.010168, "wrist_yaw": 0.004266},
+      "dynamic_friction_nm": {"shoulder_pitch": 0.026381, "shoulder_roll": 0.09202, "shoulder_yaw": 0.006678, "elbow": 0.446967, "wrist_roll": 0.335505, "wrist_pitch": 0.387704, "wrist_yaw": 0.106298}
+    },
     "camera_mount": [
       {"name": "camera", "size": [0.024, 0.036, 0.032], "position": [0.0523, 0.0, 0.0509], "rpy": [0.0, 0.4361, 0.0], "color": [0.02, 0.02, 0.025]},
       {"name": "bracket", "size": [0.03, 0.03, 0.01], "position": [0.04, 0.0, 0.036], "rpy": [0.0, 0.0, 0.0], "color": [0.03, 0.03, 0.035]}
     ]
   },
-  "cubes": {"count": 2, "size": [0.048, 0.048, 0.048], "mass": 0.1, "color": [0.04, 0.65, 0.08], "target_bin": "brown_box"},
-  "cylinders": {"count": 1, "radius": 0.025, "height": 0.1, "mass": 0.05, "color": [0.75, 0.025, 0.025], "target_bin": "green_box"},
+  "cubes": {"count": 1, "size": [0.048, 0.048, 0.048], "mass": 0.1, "color": [0.04, 0.65, 0.08], "target_bin": "brown_box"},
+  "cylinders": {"count": 2, "radius": 0.028, "height": 0.1, "mass": 0.05, "color": [0.75, 0.025, 0.025], "target_bin": "green_box"},
   "bins": [
     {"name": "green_box", "center_xy": [0.3, -0.4], "inner_size": [0.25, 0.26, 0.10], "wall_thickness": 0.012, "color": [0.02, 0.25, 0.17]},
     {"name": "brown_box", "center_xy": [0.3, 0.4], "inner_size": [0.25, 0.26, 0.10], "wall_thickness": 0.012, "color": [0.36, 0.19, 0.07]}

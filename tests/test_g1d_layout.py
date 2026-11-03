@@ -20,8 +20,10 @@ class PlacementTests(unittest.TestCase):
     def setUp(self):
         self.cfg = layout.load_settings()
 
-    def test_legacy_controller_is_default(self):
-        self.assertFalse(self.cfg["robot"]["controller_alignment"])
+    def test_aligned_controller_and_identified_joint_dynamics_are_default(self):
+        self.assertTrue(self.cfg["robot"]["controller_alignment"])
+        self.assertEqual(set(self.cfg["robot"]["joint_dynamics"]),
+                         {"static_friction_nm", "dynamic_friction_nm", "viscous_friction_nm_s_per_rad", "armature_kg_m2"})
 
     def test_seeded_layouts_fit_without_object_or_bin_overlap(self):
         self.cfg["randomization"]["enabled"] = True
