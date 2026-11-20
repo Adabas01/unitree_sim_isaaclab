@@ -1,0 +1,92 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/G1/store_camera.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1/store_camera/default.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: store_camera
+suite: G1
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1/store_camera/default.yaml
+task_type: put
+prompt: Put the camera into the storage box.
+nouns:
+  object: camera
+  target: storage box
+  verb: put
+rubric:
+  place_check: inside
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+  rim_margin: 0.0
+objects:
+- name: camera
+  role: main
+  asset:
+    source: behavior1k
+    category: digital_camera
+    model: nikon   # was tymxet (REALM's B1K pick); 2026-10-26: Objaverse compact camera (NVIDIA GraspGen index), replacing a box stand-in
+  bounding_box:
+  - 0.052
+  - 0.089
+  - 0.057
+  xy_torso:
+  - 0.3
+  - -0.1704
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0385
+- name: storage_box
+  role: target
+  asset:
+    source: behavior1k
+    category: storage_box
+    model: bwbpvg
+  bounding_box:
+  - 0.235
+  - 0.251
+  - 0.057
+  xy_torso:
+  - 0.37
+  - 0.0396
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0385
+- name: corkscrew
+  role: distractor
+  asset:
+    source: behavior1k
+    category: corkscrew
+    model: gqocna
+  bounding_box:
+  - 0.11
+  - 0.09
+  - 0.02
+  xy_torso:
+  - 0.47
+  - -0.1804
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.02
+prompt_variants:
+  S-LANG:
+  - Store the camera in the case.
+  - Place the camera inside the organizer box.
+  - Pack the camera into the storage container.
+  - Set the camera into the box for storage.
+  S-PROP:
+  - put the small grey device with a lens into the wide white box
+  - place the boxy picture-taking device into the shallow white container
+  - put the compact device with the round lens into the open white box
+  - store the handheld photo device in the large flat white box
+  - put the grey gadget with a lens into the low white crate
+  - place the small grey device in the wide open container
+  - put the lens-fronted gadget into the white rectangular box
+  - pack the picture-taking gadget into the shallow white box
+realm_scene: Pomaria_1_int/Table

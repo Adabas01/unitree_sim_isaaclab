@@ -1,0 +1,211 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/DROID10/put_green_block_into_bowl.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_DROID10/put_green_block_into_bowl/g1.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: put_green_block_into_bowl
+suite: DROID10
+source: REALM_agentic_v2/realm/config/tasks/REALM_DROID10/put_green_block_into_bowl/g1.yaml
+task_type: put
+prompt: put the green block in the bowl
+nouns:
+  object: green block
+  target: bowl
+  verb: put
+rubric: {}
+objects:
+- name: cube
+  role: main
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba:
+    - 0.1953125
+    - 0.65625
+    - 0.3203125
+    - 1.0
+  bounding_box:
+  - 0.03
+  - 0.03
+  - 0.03
+  xy_torso:
+  - 0.365
+  - 0.1366
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.025
+  scale:
+  - 0.03
+  - 0.03
+  - 0.03
+- name: bowl
+  role: target
+  asset:
+    source: behavior1k
+    category: bowl
+    model: jpvcjv
+  bounding_box:
+  - 0.2
+  - 0.2
+  - 0.07
+  xy_torso:
+  - 0.38
+  - -0.0204
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.045
+- name: corkscrew
+  role: distractor
+  asset:
+    source: behavior1k
+    category: corkscrew
+    model: gqocna
+  bounding_box:
+  - 0.11
+  - 0.09
+  - 0.02
+  xy_torso:
+  - 0.52
+  - 0.3216
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.02
+- name: table_knife
+  role: distractor
+  asset:
+    source: behavior1k
+    category: table_knife
+    model: eebpap
+  bounding_box:
+  - 0.27
+  - 0.03
+  - 0.01
+  xy_torso:
+  - 0.47
+  - -0.1904
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.9238795
+  - -0.3826834
+  centre_z_above_table: 0.015
+- name: wineglass
+  role: distractor
+  asset:
+    source: behavior1k
+    category: wineglass
+    model: hxccge
+  bounding_box:
+  - 0.08
+  - 0.08
+  - 0.16
+  xy_torso:
+  - 0.44
+  - 0.3496
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.09
+- name: water_glass
+  role: distractor
+  asset:
+    source: behavior1k
+    category: water_glass
+    model: lvqgvn
+  bounding_box:
+  - 0.06
+  - 0.06
+  - 0.15
+  xy_torso:
+  - 0.245
+  - -0.0834
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.085
+- name: bottle_of_wine
+  role: distractor
+  asset:
+    source: behavior1k
+    category: bottle_of_wine
+    model: tisclo
+  bounding_box:
+  - 0.075
+  - 0.075
+  - 0.24
+  xy_torso:
+  - 0.62
+  - 0.2216
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.13
+prompt_variants:
+  S-LANG:
+  - Place the emerald colored cube inside the container.
+  - Transfer the green block into the bowl.
+  - Set the verdant brick down inside the receiving dish.
+  - Move the block that is green into the vessel.
+  - Deposit the green piece into the bowl.
+  - Relocate the green block to the interior of the bowl.
+  - Drop the green block in the bowl.
+  - Insert the green cube into the container.
+  - Shift the block, which is green, to the bowl.
+  - The task is to position the green block within the bowl.
+  S-AFF:
+  - Put the green block in the bowl where you would keep keys.
+  - Put the green block in the bowl, as if clearing a table.
+  - Toss the green block into the bowl like you would store change.
+  - Put the green block in the bowl for safekeeping.
+  - Deposit the green block in the bowl for later use.
+  - Put the green block in the bowl as you would a piece of fruit.
+  - Move the green block into the bowl to organize the workspace.
+  - Place the green block in the bowl for serving.
+  - Set the green block in the bowl before starting dinner.
+  - Put the green block in the bowl as if cleaning up a toy area.
+  S-INT:
+  - Put the green plastic toy in the ceramic dish.
+  - Place the cube-shaped object in the hemispherical container.
+  - Put the synthetic block in the bowl often used for food.
+  - Put the solid object, which is green, into the receiving vessel.
+  - Insert the green polyhedral shape into the common kitchen ware.
+  - Put the block, likely made of wood, in the dish.
+  - Place the angular green item into the round container.
+  - Put the block in the bowl used for holding liquids.
+  - Put the green object that is rigid in the rounded container.
+  - Move the green item into the bowl, typically made of glass or wood.
+  S-PROP:
+  - Place the small green cube inside the brown textured bowl.
+  - Pick up the light green block and drop it into the large round bowl on the table.
+  - Move the green-colored object into the woven-looking bowl.
+  - Put the cube-shaped green item into the deep bowl.
+  - Place the mint-green block in the patterned bowl on the tabletop.
+  - Insert the green cube into the bowl with a rough brown surface.
+  - Drop the small, bright-green object into the big brown bowl.
+  - Place the cube with the green surface into the ceramic bowl on the table.
+  - Move the green block into the bowl that’s closest to the edge of the table.
+  - Put the green cube-shaped object into the wide, shallow bowl.
+  S-MO:
+  - Place the green block into the item that’s next to the knife.
+  - Put the green cube into the item near the center of the table.
+  - Move the green object into the item that’s beside the bottle.
+  - Drop the green block into the item closest to the robot arm.
+  - Put the green block into the item that’s in front of the chairs.
+  - Place the green cube into the item positioned between the knife and the bottle.
+  - Put the green block into the item on the right side of the table.
+  - Insert the green cube into the item opposite the robot arm.
+  - Move the green block into the item that sits across from the small bottle.
+  - Drop the green cube into the item located near the table’s edge.
+realm_scene: Pomaria_1_int/Table

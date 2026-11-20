@@ -1,0 +1,110 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/G1/collect_eggs.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1/collect_eggs/default.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: collect_eggs
+suite: G1
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1/collect_eggs/default.yaml
+task_type: put
+prompt: Collect the eggs and place them into the tray.
+nouns:
+  object: eggs
+  target: tray
+  verb: place
+rubric:
+  place_check: 'on'
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+objects:
+- name: egg
+  role: main
+  asset:
+    source: behavior1k
+    category: egg
+    model: qopwgx
+  bounding_box:
+  - 0.066
+  - 0.052
+  - 0.052
+  xy_torso:
+  - 0.28
+  - 0.1196
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.036
+- name: tray
+  role: target
+  asset:
+    source: behavior1k
+    category: tray
+    model: glwebh
+  bounding_box:
+  - 0.207
+  - 0.166
+  - 0.025
+  xy_torso:
+  - 0.38
+  - -0.0404
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0225
+- name: egg_2
+  role: distractor
+  asset:
+    source: behavior1k
+    category: egg
+    model: qopwgx
+  bounding_box:
+  - 0.066
+  - 0.052
+  - 0.052
+  xy_torso:
+  - 0.27
+  - -0.2104
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.036
+- name: egg_3
+  role: distractor
+  asset:
+    source: behavior1k
+    category: egg
+    model: brkitw
+  bounding_box:
+  - 0.07
+  - 0.055
+  - 0.055
+  xy_torso:
+  - 0.4
+  - 0.1196
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0375
+prompt_variants:
+  S-LANG:
+  - Pick up the eggs and put them in the basket.
+  - Gather the eggs into the container.
+  - Move the eggs carefully into the holder.
+  - Store the eggs by collecting them into the tray.
+  S-PROP:
+  - collect the small oval objects and place them into the black tray
+  - put the smooth oval shells into the dark square tray
+  - gather the fragile oval items into the shallow black tray
+  - move the oval, hard-shelled items into the low black tray
+  - collect the small rounded ovals and set them in the flat black container
+  - put the breakable oval objects into the black tray
+  - place the oval items lying on the table into the dark tray
+  - gather the palm-sized ovals into the black tray with low rims
+realm_scene: Pomaria_1_int/Table

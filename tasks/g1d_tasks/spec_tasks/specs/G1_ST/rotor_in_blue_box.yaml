@@ -1,0 +1,189 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/G1_ST/rotor_in_blue_box.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1_ST/storage_boxes/rotor_in_blue_box.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: rotor_in_blue_box
+suite: G1_ST
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1_ST/storage_boxes/rotor_in_blue_box.yaml
+task_type: put
+prompt: Put the metal rotor into the blue storage box.
+nouns:
+  object: metal rotor
+  target: blue storage box
+  verb: Put
+rubric:
+  place_check: inside
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+  rim_margin: 0.0
+objects:
+- name: rotor
+  role: main
+  asset:
+    source: primitive
+    primitive_type: Cylinder
+    rgba:
+    - 0.62
+    - 0.63
+    - 0.66
+    - 1.0
+  bounding_box:
+  - 0.045
+  - 0.045
+  - 0.07
+  xy_torso:
+  - 0.26
+  - -0.0804
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.045
+  scale:
+  - 0.045
+  - 0.045
+  - 0.07
+- name: blue_box
+  role: target
+  asset:
+    source: behavior1k
+    category: lunch_box
+    model: adxzhe
+  bounding_box:
+  - 0.1472
+  - 0.2032
+  - 0.0552
+  xy_torso:
+  - 0.42
+  - -0.1204
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7071068
+  - 0.7071068
+  centre_z_above_table: 0.0376
+- name: green_box
+  role: distractor
+  asset:
+    source: behavior1k
+    category: toy_box
+    model: qgfbdj
+  bounding_box:
+  - 0.129
+  - 0.224
+  - 0.072
+  xy_torso:
+  - 0.435
+  - 0.0346
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7071068
+  - 0.7071068
+  centre_z_above_table: 0.046
+- name: battery
+  role: distractor
+  asset:
+    source: behavior1k
+    category: battery
+    model: dcjyzg
+  bounding_box:
+  - 0.034
+  - 0.035
+  - 0.061
+  xy_torso:
+  - 0.26
+  - 0.0496
+  orientation_torso_xyzw:
+  - 0.0
+  - -0.7071068
+  - -0.7071068
+  - 0.0
+  centre_z_above_table: 0.0275
+- name: orange_block_1
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba:
+    - 0.95
+    - 0.45
+    - 0.1
+    - 1.0
+  bounding_box:
+  - 0.03
+  - 0.03
+  - 0.03
+  xy_torso:
+  - 0.28
+  - 0.1346
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.9961947
+  - 0.0871557
+  centre_z_above_table: 0.025
+  scale:
+  - 0.03
+  - 0.03
+  - 0.03
+- name: orange_block_2
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba:
+    - 0.95
+    - 0.45
+    - 0.1
+    - 1.0
+  bounding_box:
+  - 0.03
+  - 0.03
+  - 0.03
+  xy_torso:
+  - 0.33
+  - 0.1896
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.9396926
+  - 0.3420201
+  centre_z_above_table: 0.025
+  scale:
+  - 0.03
+  - 0.03
+  - 0.03
+- name: orange_block_3
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba:
+    - 0.95
+    - 0.45
+    - 0.1
+    - 1.0
+  bounding_box:
+  - 0.03
+  - 0.03
+  - 0.03
+  xy_torso:
+  - 0.34
+  - 0.1296
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.819152
+  - 0.5735764
+  centre_z_above_table: 0.025
+  scale:
+  - 0.03
+  - 0.03
+  - 0.03
+prompt_variants:
+  S-LANG:
+  - Pick up the metal rotor and place it into the blue storage box.
+  - Move the metal rotor into the blue storage box.
+realm_scene: Pomaria_1_int/Table

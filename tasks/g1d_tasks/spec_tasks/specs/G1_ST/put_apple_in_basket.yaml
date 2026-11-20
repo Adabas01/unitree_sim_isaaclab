@@ -1,0 +1,137 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/G1_ST/put_apple_in_basket.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1_ST/fruit_basket/put_apple_in_basket.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: put_apple_in_basket
+suite: G1_ST
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1_ST/fruit_basket/put_apple_in_basket.yaml
+task_type: put
+prompt: Put the apple into the fruit basket.
+nouns:
+  object: apple
+  target: fruit basket
+  verb: Put
+rubric:
+  place_check: inside
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+objects:
+- name: apple
+  role: main
+  asset:
+    source: behavior1k
+    category: apple
+    model: obixxh
+  bounding_box:
+  - 0.052
+  - 0.051
+  - 0.052
+  xy_torso:
+  - 0.28
+  - 0.1696
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.036
+- name: basket
+  role: target
+  asset:
+    source: behavior1k
+    category: wicker_basket
+    model: fruit   # was dgkhyn (REALM's B1K pick); asset swap 2026-10-25: Palatial woven fruit basket: the herb basket's handle over the opening blocked the G1-D place
+  bounding_box:
+  - 0.129
+  - 0.206
+  - 0.097
+  xy_torso:
+  - 0.45
+  - 0.2096
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0585
+- name: juicer
+  role: distractor
+  asset:
+    source: behavior1k
+    category: pitcher
+    model: bbewjo
+  bounding_box:
+  - 0.1253
+  - 0.0907
+  - 0.1757
+  xy_torso:
+  - 0.45
+  - -0.1604
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7071068
+  - 0.7071068
+  centre_z_above_table: 0.0979
+- name: banana
+  role: distractor
+  asset:
+    source: behavior1k
+    category: banana
+    model: verqwv
+  bounding_box:
+  - 0.2
+  - 0.063
+  - 0.032
+  xy_torso:
+  - 0.245
+  - -0.0004
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7071068
+  - 0.7071068
+  centre_z_above_table: 0.026
+- name: plum
+  role: distractor
+  asset:
+    source: behavior1k
+    category: plum
+    model: rhaemq
+  bounding_box:
+  - 0.061
+  - 0.04
+  - 0.039
+  xy_torso:
+  - 0.36
+  - 0.0496
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0295
+- name: lemon
+  role: distractor
+  asset:
+    source: behavior1k
+    category: lemon
+    model: bbvonm
+  bounding_box:
+  - 0.057
+  - 0.048
+  - 0.045
+  xy_torso:
+  - 0.34
+  - -0.0404
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0325
+prompt_variants:
+  S-LANG:
+  - Pick up the apple and place it into the fruit basket.
+  - Move the apple into the fruit basket.
+realm_scene: Pomaria_1_int/Table

@@ -1,0 +1,37 @@
+# From ponimatkin/isaaclab_biman_sim g1sim/tasks/specs/GRASP_BENCH/pick_cube_45mm.yaml at 4d0554c, unchanged below this line.
+name: pick_cube_45mm
+suite: GRASP_BENCH
+source: synthetic grasp-physics benchmark
+task_type: pick
+prompt: Pick up the cube.
+nouns:
+  object: cube
+  target: null
+  verb: Pick
+rubric:
+  lift_requires_grasp: true
+objects:
+- name: obj
+  role: main
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba:
+    - 0.85
+    - 0.35
+    - 0.2
+    - 1
+  bounding_box:
+  - 0.045
+  - 0.045
+  - 0.045
+  xy_torso:
+  - 0.32
+  - 0.12
+  orientation_torso_xyzw:
+  - 0
+  - 0
+  - 0
+  - 1
+  centre_z_above_table: 0.0245
+prompt_variants: {}

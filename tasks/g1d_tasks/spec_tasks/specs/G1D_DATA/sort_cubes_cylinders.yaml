@@ -1,0 +1,39 @@
+# From ponimatkin/isaaclab_biman_sim g1sim/tasks/specs/G1D_DATA/sort_cubes_cylinders.yaml at 4d0554c, unchanged below this line.
+# The g1d-sort-cubes-cylinders-dex1-150ep scene (the pi05_g1d_sort_* fine-tunes' training task), authored from the
+# recordings' head frames back-projected onto the table (tools/pixel_to_table.py, G1-D head calibration, table 0.10 m
+# below the torso). Run with --robot G1D_g1dsort. Torso frame: x forward, y left, metres.
+name: sort_cubes_cylinders
+suite: G1D_DATA
+source: testbed/datasets/g1d-sort-cubes-cylinders-dex1-150ep (ep000/ep021 first frames)
+task_type: put_all
+prompt: Sort the cubes into the brown cardboard box and the cylinders into the green plastic bin.
+nouns: {object: cubes, target: brown cardboard box, verb: Sort}
+rubric:
+  place_check: inside
+  placements: [[cube_1, cardboard_box], [cube_2, cardboard_box], [cylinder_1, green_bin], [cylinder_2, green_bin],
+               [cylinder_3, green_bin]]
+  lift_requires_grasp: true
+objects:
+- {name: cube_1, role: main, asset: {source: primitive, primitive_type: Cube, rgba: [0.25, 0.85, 0.2, 1]},
+   bounding_box: [0.045, 0.045, 0.045], xy_torso: [0.18, 0.05], orientation_torso_xyzw: [0, 0, 0.17, 0.985],
+   centre_z_above_table: 0.0235}
+- {name: cube_2, role: distractor, asset: {source: primitive, primitive_type: Cube, rgba: [0.25, 0.85, 0.2, 1]},
+   bounding_box: [0.045, 0.045, 0.045], xy_torso: [0.28, -0.02], orientation_torso_xyzw: [0, 0, -0.3, 0.954],
+   centre_z_above_table: 0.0235}
+- {name: cylinder_1, role: distractor, asset: {source: primitive, primitive_type: Cylinder, rgba: [0.92, 0.2, 0.25, 1]},
+   bounding_box: [0.06, 0.06, 0.11], xy_torso: [0.31, -0.10], orientation_torso_xyzw: [0, 0, 0, 1],
+   centre_z_above_table: 0.056}
+- {name: cylinder_2, role: distractor, asset: {source: primitive, primitive_type: Cylinder, rgba: [0.92, 0.2, 0.25, 1]},
+   bounding_box: [0.055, 0.055, 0.075], xy_torso: [0.17, -0.08], orientation_torso_xyzw: [0, 0, 0, 1],
+   centre_z_above_table: 0.039}
+- {name: cylinder_3, role: distractor, asset: {source: primitive, primitive_type: Cylinder, rgba: [0.92, 0.2, 0.25, 1]},
+   bounding_box: [0.02, 0.02, 0.05], xy_torso: [0.27, 0.0], orientation_torso_xyzw: [0, 0, 0, 1],
+   centre_z_above_table: 0.026}
+- {name: cardboard_box, role: target, asset: {source: generated, kind: open_box, rgba: [0.72, 0.56, 0.38, 1]},
+   bounding_box: [0.28, 0.36, 0.14], xy_torso: [0.25, 0.43], orientation_torso_xyzw: [0, 0, 0, 1],
+   centre_z_above_table: 0.071}
+- {name: green_bin, role: distractor, asset: {source: generated, kind: open_box, rgba: [0.1, 0.62, 0.25, 1]},
+   bounding_box: [0.30, 0.22, 0.13], xy_torso: [0.30, -0.43], orientation_torso_xyzw: [0, 0, 0, 1],
+   centre_z_above_table: 0.066}
+prompt_variants: {}
+scene: {table_rgba: [0.08, 0.08, 0.09, 1]}

@@ -1,0 +1,99 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/G1_ST/glue_stick_in_box.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1_ST/desk_tech/glue_stick_in_box.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: glue_stick_in_box
+suite: G1_ST
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1_ST/desk_tech/glue_stick_in_box.yaml
+task_type: put
+prompt: Put the glue stick into the box.
+nouns:
+  object: glue stick
+  target: box
+  verb: Put
+rubric:
+  place_check: inside
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+objects:
+- name: glue_stick
+  role: main
+  asset:
+    source: behavior1k
+    category: glue_stick
+    model: sqzyci
+  bounding_box:
+  - 0.095
+  - 0.019
+  - 0.019
+  xy_torso:
+  - 0.3
+  - -0.0604
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7071068
+  - 0.7071068
+  centre_z_above_table: 0.0195
+- name: phone_box
+  role: target
+  asset:
+    source: behavior1k
+    category: toy_box
+    model: uvhflb
+  bounding_box:
+  - 0.1089
+  - 0.1595
+  - 0.0539
+  xy_torso:
+  - 0.42
+  - -0.1704
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.037
+- name: lamp
+  role: distractor
+  asset:
+    source: behavior1k
+    category: table_lamp
+    model: bhdxug
+  bounding_box:
+  - 0.28
+  - 0.08
+  - 0.175
+  xy_torso:
+  - 0.425
+  - 0.1896
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7071068
+  - 0.7071068
+  centre_z_above_table: 0.0975
+- name: marker
+  role: distractor
+  asset:
+    source: behavior1k
+    category: marker
+    model: asrobz
+  bounding_box:
+  - 0.165
+  - 0.019
+  - 0.019
+  xy_torso:
+  - 0.31
+  - 0.1296
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7660444
+  - 0.6427876
+  centre_z_above_table: 0.0195
+prompt_variants:
+  S-LANG:
+  - Pick up the glue stick and place it into the box.
+  - Move the glue stick into the box.
+realm_scene: Pomaria_1_int/Table

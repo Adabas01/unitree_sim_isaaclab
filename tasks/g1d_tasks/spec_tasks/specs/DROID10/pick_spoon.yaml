@@ -1,0 +1,171 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/DROID10/pick_spoon.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_DROID10/pick_spoon/g1.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: pick_spoon
+suite: DROID10
+source: REALM_agentic_v2/realm/config/tasks/REALM_DROID10/pick_spoon/g1.yaml
+task_type: pick
+prompt: pick up the spoon
+nouns:
+  object: spoon
+  target: ''
+  verb: pick up
+rubric:
+  immutables:
+  - type: DatasetObject
+    name: plate
+    category: plate
+    model: ntedfx
+    bounding_box:
+    - 0.2
+    - 0.2
+    - 0.03
+    relative_bbox_position:
+    - 0.15
+    - 0.25
+    - 0.0
+  - type: DatasetObject
+    name: tray
+    category: tray
+    model: vxbtax
+    bounding_box:
+    - 0.33
+    - 0.48
+    - 0.09
+    relative_bbox_position:
+    - 0.55
+    - 0.25
+    - 0.0
+objects:
+- name: teaspoon
+  role: main
+  asset:
+    source: behavior1k
+    category: teaspoon
+    model: eilfij
+  bounding_box:
+  - 0.19
+  - 0.04
+  - 0.01
+  xy_torso:
+  - 0.2866
+  - -0.2202
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7071068
+  - 0.7071068
+  centre_z_above_table: 0.015
+- name: can_of_soda
+  role: distractor
+  asset:
+    source: behavior1k
+    category: can_of_soda
+    model: itolcg
+  bounding_box:
+  - 0.08
+  - 0.08
+  - 0.13
+  xy_torso:
+  - 0.4396
+  - 0.2198
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.075
+- name: half_apple
+  role: distractor
+  asset:
+    source: behavior1k
+    category: half_apple
+    model: sguztn
+  bounding_box:
+  - 0.1
+  - 0.09
+  - 0.04
+  xy_torso:
+  - 0.2866
+  - -0.0002
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.03
+- name: beaker
+  role: distractor
+  asset:
+    source: behavior1k
+    category: beaker
+    model: exzsal
+  bounding_box:
+  - 0.1
+  - 0.1
+  - 0.1
+  xy_torso:
+  - 0.4096
+  - 0.1098
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.06
+prompt_variants:
+  S-LANG:
+  - Grasp the spoon.
+  - Get hold of the spoon.
+  - Take the spoon.
+  - Lift the spoon.
+  - Acquire the spoon.
+  - Grab the spoon.
+  - Seize the spoon.
+  - Retrieve the spoon.
+  - Hold the spoon.
+  - Clutch the spoon.
+  S-AFF:
+  - Ready the utensil for eating.
+  - Take the instrument used for stirring liquid.
+  - Get the flatware used for soup or cereal.
+  - Pick up the item you would use to serve a small portion.
+  - Take the cutlery piece that is not a knife or fork.
+  - Prepare to eat with the spoon.
+  - Get the spoon for a daily meal.
+  - Lift the spoon off the table.
+  - Take the item used to measure baking soda.
+  - Grasp the object you would feed a baby with.
+  S-INT:
+  - Pick up the object typically made of metal.
+  - Get the item with a shallow bowl and a handle.
+  - Take the common kitchen implement.
+  - Pick up the piece of silverware.
+  - Acquire the common serving tool.
+  - Lift the spoon, a form of table service.
+  - Grasp the tool often made from stainless steel.
+  - Take the object that is a type of cutlery.
+  - Get the utensil that is concave.
+  - Pick up the item that is categorized as flatware.
+  S-PROP:
+  - Grasp the silver utensil.
+  - Lift the metal utensil.
+  - Acquire the utensil with the oval-shaped bowl.
+  - Get the utensil that's resting on the marble surface.
+  - Pick up the item used for eating that is small and shiny.
+  - Grasp the utensil that is mostly flat and silver.
+  - Retrieve the small, curved eating implement.
+  - Take the object with the long handle and scoop.
+  - Collect the reflective utensil from the table.
+  - Lift the silver object near the center of the plate.
+  S-MO:
+  - Pick up the item next to the white plate.
+  - Grasp the utensil to the right of the white plate.
+  - Lift the object between the tray and the white plate.
+  - Acquire the item that is furthest from to the tray.
+  - Get the item furthest away from the orange can.
+  - Pick up the utensil closest to the center of the table.
+  - Grasp the item on the table surface but not in the tray.
+  - Retrieve the item near the edge of the plate.
+  - Collect the object to the left of the tray.
+  - Take the item near the right side of the white plate.
+realm_scene: Merom_1_int/Table

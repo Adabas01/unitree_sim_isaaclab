@@ -1,0 +1,159 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/DROID10/pick_water_bottle.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_DROID10/pick_water_bottle/g1.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: pick_water_bottle
+suite: DROID10
+source: REALM_agentic_v2/realm/config/tasks/REALM_DROID10/pick_water_bottle/g1.yaml
+task_type: pick
+prompt: pick up the water bottle
+nouns:
+  object: water bottle
+  target: ''
+  verb: pick up
+rubric:
+  immutables:
+  - type: DatasetObject
+    name: frying_pan
+    category: frying_pan
+    model: aewpzn
+    bounding_box:
+    - 0.37
+    - 0.24
+    - 0.08
+    relative_bbox_position:
+    - 0.2
+    - 0.25
+    - 0.0
+objects:
+- name: bottle_of_water
+  role: main
+  asset:
+    source: behavior1k
+    category: bottle_of_water
+    model: cyzaue
+  bounding_box:
+  - 0.054
+  - 0.051
+  - 0.175
+  xy_torso:
+  - 0.4196
+  - -0.09
+  orientation_torso_xyzw:
+  - 0.0
+  - -0.0
+  - -0.0
+  - 1.0
+  centre_z_above_table: 0.0975
+- name: lid
+  role: distractor
+  asset:
+    source: behavior1k
+    category: lid
+    model: gerjlh
+  bounding_box:
+  - 0.2
+  - 0.2
+  - 0.07
+  xy_torso:
+  - 0.5504
+  - 0.1002
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.9238795
+  - -0.3826834
+  centre_z_above_table: 0.045
+- name: orange
+  role: distractor
+  asset:
+    source: behavior1k
+    category: orange
+    model: ucstpm
+  bounding_box:
+  - 0.08
+  - 0.09
+  - 0.08
+  xy_torso:
+  - 0.6664
+  - -0.1769
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.9238795
+  - -0.3826834
+  centre_z_above_table: 0.05
+- name: bowl
+  role: distractor
+  asset:
+    source: behavior1k
+    category: bowl
+    model: adciys
+  bounding_box:
+  - 0.15
+  - 0.15
+  - 0.06
+  xy_torso:
+  - 0.8219
+  - 0.2615
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.9238795
+  - -0.3826834
+  centre_z_above_table: 0.04
+prompt_variants:
+  S-LANG:
+  - Grasp the water bottle.
+  - Get hold of the water bottle.
+  - Take the water bottle.
+  - Lift the water bottle.
+  - Acquire the water bottle.
+  - Grab the bottle.
+  - Seize the hydration container.
+  - Retrieve the water bottle.
+  - Hold the bottle in hand.
+  - Clutch the water bottle.
+  S-AFF:
+  - Take the object used for portable hydration.
+  - Get the item you would drink from on a hike.
+  - Pick up the container that typically holds drinking liquid.
+  - Grasp the bottle for a daily routine.
+  - Ready the container for a sip.
+  - Lift the bottle you would put in a cup holder.
+  - Grab the object often used at the gym.
+  - Secure the water bottle before leaving.
+  - Get the portable vessel for quenching thirst.
+  - Take the container you would refill.
+  S-INT:
+  - Pick up the object commonly made of plastic or metal.
+  - Get the cylindrical container with a screw cap.
+  - Take the item categorized as a beverage container.
+  - Lift the vessel designed to be spill-proof.
+  - Acquire the reusable liquid storage item.
+  - Grab the object whose primary function is to store H2O.
+  - Seize the hydration product.
+  - Retrieve the bottle that is a type of flask.
+  - Take the household item for holding water.
+  - Grasp the personal liquid dispenser.
+  S-PROP:
+  - grasp the tall, cylindrical white object
+  - lift the plastic container
+  - pick up the white bottle
+  - retrieve the object shaped like a slender cylinder
+  - grab the white container on the table
+  - lift the water bottle with the blue label
+  - grasp the item that is mostly white in color
+  - pick up the tall bottle
+  - retrieve the cylindrical object with a cap
+  - grab the tall, thin item
+  S-MO:
+  - pick up the bottle that is to the left of the orange
+  - grasp the water bottle next to the small white bowl
+  - lift the bottle in front of the brown cabinets
+  - retrieve the water bottle on the black table
+  - grab the bottle that is closest to the small bowl
+  - pick up the bottle on the table but not the pan
+  - grasp the water bottle near the center of the table
+  - lift the bottle to the left of the houseplant in the white pot
+  - retrieve the bottle between the bowl and the pan handle
+  - grab the bottle that is furthest from the edge of the table
+realm_scene: Wainscott_0_int/Dining_Table

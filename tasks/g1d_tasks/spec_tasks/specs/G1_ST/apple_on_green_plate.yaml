@@ -1,0 +1,161 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/G1_ST/apple_on_green_plate.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1_ST/color_plates/apple_on_green_plate.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: apple_on_green_plate
+suite: G1_ST
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1_ST/color_plates/apple_on_green_plate.yaml
+task_type: put
+prompt: Place the apple on the green plate.
+nouns:
+  object: apple
+  target: green plate
+  verb: Place
+rubric:
+  place_check: 'on'
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+objects:
+- name: apple
+  role: main
+  asset:
+    source: behavior1k
+    category: apple
+    model: obixxh
+  bounding_box:
+  - 0.052
+  - 0.051
+  - 0.052
+  xy_torso:
+  - 0.28
+  - -0.0304
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.036
+- name: green_plate
+  role: target
+  asset:
+    source: primitive
+    primitive_type: Cylinder
+    rgba:
+    - 0.2
+    - 0.66
+    - 0.32
+    - 1.0
+  bounding_box:
+  - 0.15
+  - 0.15
+  - 0.012
+  xy_torso:
+  - 0.44
+  - -0.1804
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.016
+  scale:
+  - 0.15
+  - 0.15
+  - 0.012
+- name: yellow_plate
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cylinder
+    rgba:
+    - 0.92
+    - 0.8
+    - 0.15
+    - 1.0
+  bounding_box:
+  - 0.15
+  - 0.15
+  - 0.012
+  xy_torso:
+  - 0.44
+  - 0.1796
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.016
+  scale:
+  - 0.15
+  - 0.15
+  - 0.012
+- name: pink_plate
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cylinder
+    rgba:
+    - 0.93
+    - 0.55
+    - 0.6
+    - 1.0
+  bounding_box:
+  - 0.15
+  - 0.15
+  - 0.012
+  xy_torso:
+  - 0.44
+  - -0.0004
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.016
+  scale:
+  - 0.15
+  - 0.15
+  - 0.012
+- name: banana
+  role: distractor
+  asset:
+    source: behavior1k
+    category: banana
+    model: verqwv
+  bounding_box:
+  - 0.2
+  - 0.063
+  - 0.032
+  xy_torso:
+  - 0.29
+  - 0.1496
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.7071068
+  - 0.7071068
+  centre_z_above_table: 0.026
+- name: lemon
+  role: distractor
+  asset:
+    source: behavior1k
+    category: lemon
+    model: bbvonm
+  bounding_box:
+  - 0.057
+  - 0.048
+  - 0.045
+  xy_torso:
+  - 0.26
+  - -0.1404
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0325
+prompt_variants:
+  S-LANG:
+  - Pick up the apple and place it on the green plate.
+  - Move the apple on the green plate.
+realm_scene: Pomaria_1_int/Table

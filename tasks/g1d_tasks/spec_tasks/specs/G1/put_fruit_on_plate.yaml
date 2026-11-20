@@ -1,0 +1,110 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/G1/put_fruit_on_plate.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1/put_fruit_on_plate/default.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: put_fruit_on_plate
+suite: G1
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1/put_fruit_on_plate/default.yaml
+task_type: put
+prompt: Pick up the fruit and place it on the plate.
+nouns:
+  object: fruit
+  target: plate
+  verb: place
+rubric:
+  place_check: 'on'
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+objects:
+- name: apple
+  role: main
+  asset:
+    source: behavior1k
+    category: apple
+    model: obixxh
+  bounding_box:
+  - 0.052
+  - 0.051
+  - 0.052
+  xy_torso:
+  - 0.28
+  - 0.1196
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.036
+- name: plate
+  role: target
+  asset:
+    source: behavior1k
+    category: plate
+    model: aewthq
+  bounding_box:
+  - 0.17
+  - 0.17
+  - 0.019
+  xy_torso:
+  - 0.36
+  - -0.0804
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0195
+- name: water_glass
+  role: distractor
+  asset:
+    source: behavior1k
+    category: water_glass
+    model: lvqgvn
+  bounding_box:
+  - 0.06
+  - 0.06
+  - 0.15
+  xy_torso:
+  - 0.5
+  - -0.1904
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.085
+- name: corkscrew
+  role: distractor
+  asset:
+    source: behavior1k
+    category: corkscrew
+    model: gqocna
+  bounding_box:
+  - 0.11
+  - 0.09
+  - 0.02
+  xy_torso:
+  - 0.45
+  - 0.2196
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.02
+prompt_variants:
+  S-LANG:
+  - Put the fruit onto the dish.
+  - Lift the fruit into the serving plate.
+  - Place the fruit carefully into the plate.
+  - Transfer the fruit onto the plate.
+  S-PROP:
+  - pick up the round green fruit and place it on the flat white dish
+  - place the round green produce onto the flat round dish
+  - move the green spherical fruit onto the white disc-shaped dish
+  - set the round edible item on the shallow white dish
+  - pick up the fist-sized green fruit and lay it on the flat white dish
+  - put the green round fruit onto the wide white dish beside the glass
+  - place the small round fruit with a stem on the flat white dish
+  - put the only edible item on the table onto the round white dish
+realm_scene: Pomaria_1_int/Table

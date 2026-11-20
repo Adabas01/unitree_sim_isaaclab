@@ -1,0 +1,204 @@
+# From ponimatkin/isaaclab_biman_sim g1sim/tasks/specs/G1/find_green_blocks.yaml at 4d0554c, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1/find_green_blocks/default.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: find_green_blocks
+suite: G1
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1/find_green_blocks/default.yaml
+task_type: put
+prompt: Find the green blocks in the pile and put them into the box.
+nouns:
+  object: green blocks
+  target: box
+  verb: put
+rubric:
+  place_check: inside
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+  rim_margin: 0.0
+objects:
+- name: green_block
+  role: main
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: &id001
+    - 0.2
+    - 0.66
+    - 0.32
+    - 1.0
+  bounding_box:
+  - 0.04
+  - 0.04
+  - 0.04
+  xy_torso:
+  - 0.295
+  - 0.0946
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.03
+  scale:
+  - 0.04
+  - 0.04
+  - 0.04
+- name: box
+  role: target
+  asset:
+    source: behavior1k
+    category: storage_box
+    model: bwbpvg
+  bounding_box:
+  - 0.235
+  - 0.251
+  - 0.057
+  xy_torso:
+  - 0.37
+  - -0.1004
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0385
+- name: green_block_2
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id001
+  bounding_box:
+  - 0.04
+  - 0.04
+  - 0.04
+  xy_torso:
+  - 0.375
+  - 0.1566
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.03
+  scale:
+  - 0.04
+  - 0.04
+  - 0.04
+- name: red_block
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: &id002
+    - 0.8
+    - 0.12
+    - 0.12
+    - 1.0
+  bounding_box:
+  - 0.04
+  - 0.04
+  - 0.04
+  xy_torso:
+  - 0.225
+  - 0.1766
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.03
+  scale:
+  - 0.04
+  - 0.04
+  - 0.04
+- name: red_block_2
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box:
+  - 0.04
+  - 0.04
+  - 0.04
+  xy_torso:
+  - 0.375
+  - 0.0966
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.03
+  scale:
+  - 0.04
+  - 0.04
+  - 0.04
+- name: yellow_block
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: &id003
+    - 0.9
+    - 0.8
+    - 0.15
+    - 1.0
+  bounding_box:
+  - 0.04
+  - 0.04
+  - 0.04
+  xy_torso:
+  - 0.295
+  - 0.2246
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.03
+  scale:
+  - 0.04
+  - 0.04
+  - 0.04
+- name: yellow_block_2
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box:
+  - 0.04
+  - 0.04
+  - 0.04
+  xy_torso:
+  - 0.36
+  - 0.2246
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.03
+  scale:
+  - 0.04
+  - 0.04
+  - 0.04
+prompt_variants:
+  S-LANG:
+  - Locate the green blocks among the pile and place them in the box.
+  - Pick out the green blocks from the pile and put them into the box.
+  - Search the pile for green blocks and box them.
+  - Identify the green blocks in the pile and move them into the box.
+  S-PROP:
+  - find the green cubes in the pile and put them into the white box
+  - pick the green cubes out of the pile and place them in the shallow white box
+  - put the grass-green cubes into the wide white container
+  - take the cubes that are green, not red or yellow, and put them into the white box
+  - find the small green cubes among the coloured pile and drop them into the open white box
+  - sort the green cubes from the pile into the large white box
+  - put the emerald cubes from the pile into the shallow open box
+  - search the coloured pile for the green cubes and box them in the low white container
+realm_scene: Pomaria_1_int/Table

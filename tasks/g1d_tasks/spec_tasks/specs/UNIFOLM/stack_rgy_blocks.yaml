@@ -1,0 +1,30 @@
+# From ponimatkin/isaaclab_biman_sim g1sim/tasks/specs/UNIFOLM/stack_rgy_blocks.yaml at 4d0554c, unchanged below this line.
+# In-distribution check for UnifoLM-VLA-Base: its G1_Dex1_Stack_Block training task (prompt verbatim). As recorded:
+# three small cubes (red front-left, green behind it, yellow right) and a black pad in the middle; the finished tower
+# is red at the bottom, then green, then yellow. Scored as the prompt says (the tower, wherever it stands; the pad is
+# where the demonstrations build it). Torso frame: x forward, y left, metres.
+name: stack_rgy_blocks
+suite: UNIFOLM
+source: testbed/lerobot_raw/G1_Dex1_Stack_Block (first / last head frames)
+task_type: put_all
+prompt: Stack the red, green, and yellow blocks.
+nouns: {object: green block, target: red block, verb: Stack}
+rubric:
+  place_check: "on"
+  placements: [[green_block, red_block, "on"], [yellow_block, green_block, "on"]]
+  lift_requires_grasp: true
+  stage_hold_steps: {PLACE_ALL: 15}
+objects:
+- {name: green_block, role: main, asset: {source: primitive, primitive_type: Cube, rgba: [0.2, 0.66, 0.32, 1.0]},
+   bounding_box: [0.04, 0.04, 0.04], xy_torso: [0.37, 0.16], orientation_torso_xyzw: [0, 0, 0.17, 0.985],
+   centre_z_above_table: 0.02}
+- {name: red_block, role: target, asset: {source: primitive, primitive_type: Cube, rgba: [0.8, 0.12, 0.12, 1.0]},
+   bounding_box: [0.04, 0.04, 0.04], xy_torso: [0.30, 0.10], orientation_torso_xyzw: [0, 0, 0, 1],
+   centre_z_above_table: 0.02}
+- {name: yellow_block, role: distractor, asset: {source: primitive, primitive_type: Cube, rgba: [0.92, 0.8, 0.15, 1.0]},
+   bounding_box: [0.04, 0.04, 0.04], xy_torso: [0.35, -0.12], orientation_torso_xyzw: [0, 0, -0.13, 0.991],
+   centre_z_above_table: 0.02}
+- {name: black_pad, role: distractor, asset: {source: primitive, primitive_type: Cube, rgba: [0.05, 0.05, 0.06, 1.0]},
+   bounding_box: [0.05, 0.05, 0.002], xy_torso: [0.33, 0.0], orientation_torso_xyzw: [0, 0, 0, 1],
+   centre_z_above_table: 0.001}
+prompt_variants: {}

@@ -1,0 +1,91 @@
+# From ponimatkin/chiral (formerly isaaclab_biman_sim) biman/tasks/specs/G1/put_pens_in_box.yaml at 554fb5e, unchanged below this line.
+# Imported from REALM (REALM_agentic_v2/realm/config/tasks/REALM_G1/put_pens_in_box/default.yaml) by tools/import_realm_tasks.py. Torso frame: x forward, y left, metres.
+name: put_pens_in_box
+suite: G1
+source: REALM_agentic_v2/realm/config/tasks/REALM_G1/put_pens_in_box/default.yaml
+task_type: put
+prompt: Put the pens into the pen box.
+nouns:
+  object: pens
+  target: pen box
+  verb: put
+rubric:
+  place_check: 'on'
+  move_close_to: aabb
+  lift_requires_grasp: true
+  stage_hold_steps:
+    PLACE_INTO: 15
+objects:
+- name: pen
+  role: main
+  asset:
+    source: behavior1k
+    category: pen
+    model: enfumt
+  bounding_box:
+  - 0.175
+  - 0.01
+  - 0.016
+  xy_torso:
+  - 0.3
+  - 0.1196
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.9659258
+  - 0.258819
+  centre_z_above_table: 0.018
+- name: pen_box
+  role: target
+  asset:
+    source: behavior1k
+    category: tray
+    model: glwebh
+  bounding_box:
+  - 0.207
+  - 0.166
+  - 0.025
+  xy_torso:
+  - 0.35
+  - -0.1004
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -1.0
+  - 0.0
+  centre_z_above_table: 0.0225
+- name: pen_2
+  role: distractor
+  asset:
+    source: behavior1k
+    category: pen
+    model: gqwdor
+  bounding_box:
+  - 0.186
+  - 0.01
+  - 0.009
+  xy_torso:
+  - 0.33
+  - 0.2396
+  orientation_torso_xyzw:
+  - 0.0
+  - 0.0
+  - -0.9848078
+  - -0.1736482
+  centre_z_above_table: 0.0145
+prompt_variants:
+  S-LANG:
+  - Place the watercolor pens inside the box.
+  - Store the pens in the case.
+  - Pack the pens into the box.
+  - Insert the pens into the pen container.
+  S-PROP:
+  - put the long thin writing tools into the black tray
+  - place the slender white writing sticks in the dark square tray
+  - put the thin ink-filled sticks into the shallow black tray
+  - put both slim writing implements into the black tray
+  - move the narrow white writing tools into the low black container
+  - put the pointed writing sticks into the flat black tray
+  - place the thin cylindrical writing tools into the black rimmed tray
+  - store the long slim writing tools in the black tray
+realm_scene: Pomaria_1_int/Table

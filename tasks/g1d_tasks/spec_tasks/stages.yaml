@@ -1,0 +1,132 @@
+# Stage lists by task_type, from ponimatkin/isaaclab_biman_sim g1sim/tasks/task_progressions.yaml at 4d0554c (REALM's
+# task progressions). Checked in rubric.py.
+put:
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - MOVE_CLOSE
+  - PLACE_INTO
+pick:
+  - REACH
+  - GRASP
+  - LIFT_LARGE
+rotate:
+  - REACH
+  - GRASP
+  - ROTATED
+push:
+  - REACH
+  - TOUCH
+  - TOGGLED_ON
+stack:
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - MOVE_CLOSE
+  - PLACE_ONTO
+open_drawer:
+  - REACH
+  - TOUCH_AND_MOVE_JOINT
+  - OPEN_JOINT_SMALL
+  - OPEN_JOINT_LARGE
+  - OPEN_JOINT_FULL
+close_drawer:
+  - REACH
+  - TOUCH_AND_MOVE_JOINT
+  - CLOSE_JOINT_SMALL
+  - CLOSE_JOINT_LARGE
+  - CLOSE_JOINT_FULL
+pour:
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - MOVE_CLOSE
+  - POUR
+pour_proxy:
+  - REACH
+  - GRASP
+  - LIFT_POUR
+  - MOVE_CLOSE_XY
+  - POURED_PROXY
+turn_faucet:
+  - REACH
+  - TOUCH_AND_MOVE_JOINT
+  - MOVE_JOINT_SMALL
+  - MOVE_JOINT_LARGE
+  - MOVE_JOINT_FULL
+# --- G1 Tier B task types (REALM_G1_B; checkers at the end of task_progression.py) ---
+put_all:
+  - REACH
+  - GRASP
+  - PLACE_INTO
+  - PLACE_ALL
+arrange:
+  - REACH
+  - GRASP
+  - ARRANGED
+stack_pyramid:
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - PYRAMID
+upright:
+  - REACH
+  - GRASP
+  - UPRIGHT
+push_to:
+  - REACH
+  - TOUCH
+  - ON_TARGET
+hang:
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - MOVE_CLOSE
+  - HUNG
+open_lid:
+  - REACH
+  - OPEN_JOINT_SMALL
+  - OPEN_JOINT_LARGE
+close_lid:
+  - REACH
+  - CLOSE_JOINT_SMALL
+  - CLOSE_JOINT_LARGE
+  - CLOSE_JOINT_FULL
+put_into_open:
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - MOVE_CLOSE
+  - PLACE_INTO
+pick_from_open:
+  - REACH
+  - GRASP
+  - LIFT_LARGE
+put_and_close:
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - MOVE_CLOSE
+  - PLACE_INTO
+  - CLOSE_JOINT_LARGE
+carry_two_hands:          # a part too wide for one hand, carried with both (G1-D msv-demo-simple)
+  - REACH
+  - GRASP_BOTH
+  - LIFT_LARGE
+  - MOVE_CLOSE
+  - PLACE_INTO
+handover_put_all:         # objects passed right -> left in mid-air, then put away (G1 Store_Coins)
+  - REACH
+  - GRASP
+  - PLACE_INTO
+  - PLACE_ALL
+conveyor_sort:            # G1-D conveyor recordings: crate off the belt, emptied into one bin, put into another
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - PLACE_ALL
+cap_pen:                  # the cap put back on the pen with both hands (G1 Cap_The_Pen)
+  - REACH
+  - GRASP
+  - LIFT_SLIGHT
+  - CAPPED

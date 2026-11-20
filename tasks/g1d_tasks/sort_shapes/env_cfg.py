@@ -57,23 +57,33 @@ def camera_config(path, config, resolution):
     )
 
 
-def build_scene(settings, evaluation):
+def scene_material():
+    return sim_utils.RigidBodyMaterialCfg(static_friction=0.9, dynamic_friction=0.8, restitution=0.0)
+
+
+def add_box(scene, name, size, position, color):
+    """A static collision box (room, furniture, table, bins)."""
+    setattr(scene, name, AssetBaseCfg(
+        prim_path=f"{{ENV_REGEX_NS}}/{name}",
+        spawn=sim_utils.CuboidCfg(
+            size=tuple(size), collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True, contact_offset=0.002, rest_offset=0.0,
+            ),
+            physics_material=scene_material(),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=tuple(color), roughness=0.7),
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=tuple(position)),
+    ))
+
+
+def build_workspace(settings):
+    """Room, robot (with wrist camera mounts and calibration targets) and table: everything but the task's
+    objects and the cameras/lights (add_cameras_and_lights). Shared with the spec tasks (g1d_tasks/spec_tasks)."""
     room = settings["room"]
     scene = InteractiveSceneCfg(num_envs=1, env_spacing=max(room["size"][:2]) + 1, replicate_physics=True)
-    material = sim_utils.RigidBodyMaterialCfg(static_friction=0.9, dynamic_friction=0.8, restitution=0.0)
 
     def box(name, size, position, color):
-        setattr(scene, name, AssetBaseCfg(
-            prim_path=f"{{ENV_REGEX_NS}}/{name}",
-            spawn=sim_utils.CuboidCfg(
-                size=tuple(size), collision_props=sim_utils.CollisionPropertiesCfg(
-                    collision_enabled=True, contact_offset=0.002, rest_offset=0.0,
-                ),
-                physics_material=material,
-                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=tuple(color), roughness=0.7),
-            ),
-            init_state=AssetBaseCfg.InitialStateCfg(pos=tuple(position)),
-        ))
+        add_box(scene, name, size, position, color)
 
     rx, ry, rz = room["size"]
     box("floor", (rx, ry, 0.10), (0.5, 0, -0.05), (0.19, 0.21, 0.23))
@@ -131,11 +141,48 @@ def build_scene(settings, evaluation):
     tx, ty = table["center_xy"]
     sx, sy = table["size_xy"]
     height, thickness = table["height"], table["thickness"]
-    box("table_top", (sx, sy, thickness), (tx, ty, height - thickness / 2), (0.68, 0.64, 0.54))
+    # table.color (optional): the real evaluation table is dark; the default is the original light top
+    box("table_top", (sx, sy, thickness), (tx, ty, height - thickness / 2), tuple(table.get("color", (0.68, 0.64, 0.54))))
     for i, (x, y) in enumerate(((-1, -1), (-1, 1), (1, -1), (1, 1))):
         box(f"table_leg_{i}", (0.035, 0.035, height - thickness),
             (tx + x * (sx / 2 - 0.035), ty + y * (sy / 2 - 0.035), (height - thickness) / 2),
             (0.18, 0.18, 0.19))
+    return scene
+
+
+def add_cameras_and_lights(scene, settings):
+    """Head and wrist cameras (manual or calibrated profile), the world camera, and the room lights."""
+    room = settings["room"]
+    rz = room["size"][2]
+    cameras = settings["cameras"]
+    resolution = cameras["width"], cameras["height"]
+    scene.front_camera = camera_config("{ENV_REGEX_NS}/Robot/head_link/front_camera", cameras["head"], resolution)
+    for side in ("left", "right"):
+        setattr(scene, f"{side}_wrist_camera", camera_config(
+            f"{{ENV_REGEX_NS}}/Robot/{side}_dex1_base_link/{side}_wrist_camera", cameras[f"{side}_wrist"], resolution,
+        ))
+    scene.world_camera = camera_config("{ENV_REGEX_NS}/world_camera", dict(
+        position=[1.8, 1.6, 1.8], forward=[-1.4, -1.6, -0.9], focal_length=12.0, horizontal_aperture=27.0,
+    ), resolution)
+    scene.light = AssetBaseCfg(prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=room["ambient_intensity"]))
+    for i, (x, y, scale) in enumerate(((0.7, 0.0, 1.0), (-1.0, -1.1, 0.6))):
+        add_box(scene, f"light_panel_{i}", (0.95, 0.65, 0.025), (x, y, rz - 0.04), (0.85, 0.85, 0.82))
+        setattr(scene, f"ceiling_light_{i}", AssetBaseCfg(
+            prim_path=f"{{ENV_REGEX_NS}}/ceiling_light_{i}",
+            spawn=sim_utils.DiskLightCfg(radius=0.5, intensity=room["ceiling_intensity"] * scale,
+                                         color=(1.0, 0.97, 0.93)),
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(x, y, rz - 0.08)),
+        ))
+
+
+def build_scene(settings, evaluation):
+    scene = build_workspace(settings)
+    material = scene_material()
+    height = settings["table"]["height"]
+
+    def box(name, size, position, color):
+        add_box(scene, name, size, position, color)
+
     for bin_cfg in settings["bins"]:
         name, color = bin_cfg["name"], bin_cfg["color"]
         x, y = bin_cfg["center_xy"]
@@ -185,25 +232,7 @@ def build_scene(settings, evaluation):
                     debug_vis=False,
                 ))
 
-    cameras = settings["cameras"]
-    resolution = cameras["width"], cameras["height"]
-    scene.front_camera = camera_config("{ENV_REGEX_NS}/Robot/head_link/front_camera", cameras["head"], resolution)
-    for side in ("left", "right"):
-        setattr(scene, f"{side}_wrist_camera", camera_config(
-            f"{{ENV_REGEX_NS}}/Robot/{side}_dex1_base_link/{side}_wrist_camera", cameras[f"{side}_wrist"], resolution,
-        ))
-    scene.world_camera = camera_config("{ENV_REGEX_NS}/world_camera", dict(
-        position=[1.8, 1.6, 1.8], forward=[-1.4, -1.6, -0.9], focal_length=12.0, horizontal_aperture=27.0,
-    ), resolution)
-    scene.light = AssetBaseCfg(prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=room["ambient_intensity"]))
-    for i, (x, y, scale) in enumerate(((0.7, 0.0, 1.0), (-1.0, -1.1, 0.6))):
-        box(f"light_panel_{i}", (0.95, 0.65, 0.025), (x, y, rz - 0.04), (0.85, 0.85, 0.82))
-        setattr(scene, f"ceiling_light_{i}", AssetBaseCfg(
-            prim_path=f"{{ENV_REGEX_NS}}/ceiling_light_{i}",
-            spawn=sim_utils.DiskLightCfg(radius=0.5, intensity=room["ceiling_intensity"] * scale,
-                                         color=(1.0, 0.97, 0.93)),
-            init_state=AssetBaseCfg.InitialStateCfg(pos=(x, y, rz - 0.08)),
-        ))
+    add_cameras_and_lights(scene, settings)
     return scene
 
 
@@ -276,19 +305,23 @@ class G1DSortEnvCfg(ManagerBasedRLEnvCfg):
 
         env_seed = self.sorting["randomization"]["fixed_seed"]
         self.seed = None if env_seed == -1 else env_seed
+        apply_sim_settings(self)
 
-        self.decimation = 4
-        self.sim.dt = 1 / 120
-        self.sim.render_interval = self.decimation
-        self.sim.physx.enable_ccd = self.sorting["robot"]["collisions"]["continuous_collision_detection"]
-        self.sim.render.enable_direct_lighting = True
-        self.sim.render.enable_shadows = True
-        self.sim.render.enable_global_illumination = True
-        self.sim.render.enable_ambient_occlusion = True
-        self.sim.render.enable_reflections = True
-        self.sim.render.antialiasing_mode = "DLAA"
-        self.sim.physx.bounce_threshold_velocity = 0.05
-        self.episode_length_s = self.evaluation["episode_timeout_s"]
-        self.num_rerenders_on_reset = 1
-        self.viewer.eye = (1.8, 1.6, 1.8)
-        self.viewer.lookat = (0.4, 0.0, 0.9)
+
+def apply_sim_settings(cfg):
+    """30 Hz control over 120 Hz physics, rendering and viewer settings (shared with the spec tasks)."""
+    cfg.decimation = 4
+    cfg.sim.dt = 1 / 120
+    cfg.sim.render_interval = cfg.decimation
+    cfg.sim.physx.enable_ccd = cfg.sorting["robot"]["collisions"]["continuous_collision_detection"]
+    cfg.sim.render.enable_direct_lighting = True
+    cfg.sim.render.enable_shadows = True
+    cfg.sim.render.enable_global_illumination = True
+    cfg.sim.render.enable_ambient_occlusion = True
+    cfg.sim.render.enable_reflections = True
+    cfg.sim.render.antialiasing_mode = "DLAA"
+    cfg.sim.physx.bounce_threshold_velocity = 0.05
+    cfg.episode_length_s = cfg.evaluation["episode_timeout_s"]
+    cfg.num_rerenders_on_reset = 1
+    cfg.viewer.eye = (1.8, 1.6, 1.8)
+    cfg.viewer.lookat = (0.4, 0.0, 0.9)

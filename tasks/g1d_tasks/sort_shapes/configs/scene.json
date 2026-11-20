@@ -16,9 +16,9 @@
     },
     "gripper_actuator": {
       "velocity_limit_m_s": 0.4,
-      "stiffness_n_m": 1000.0,
-      "damping_n_s_m": 20.0,
-      "effort_limit_n": 20.0
+      "stiffness_n_m": 9400.0,
+      "damping_n_s_m": 94.0,
+      "effort_limit_n": 40.0
     },
     "gripper_control": {
       "mode": "continuous",
@@ -40,7 +40,7 @@
       {"name": "bracket", "size": [0.03, 0.03, 0.01], "position": [0.04, 0.0, 0.036], "rpy": [0.0, 0.0, 0.0], "color": [0.03, 0.03, 0.035]}
     ]
   },
-  "cubes": {"count": 1, "size": [0.048, 0.048, 0.048], "mass": 0.1, "color": [0.04, 0.65, 0.08], "target_bin": "brown_box"},
+  "cubes": {"count": 1, "size": [0.048, 0.048, 0.048], "mass": 0.015, "color": [0.04, 0.65, 0.08], "target_bin": "brown_box"},
   "cylinders": {"count": 2, "radius": 0.028, "height": 0.1, "mass": 0.05, "color": [0.75, 0.025, 0.025], "target_bin": "green_box"},
   "bins": [
     {"name": "green_box", "center_xy": [0.3, -0.4], "inner_size": [0.25, 0.26, 0.10], "wall_thickness": 0.012, "color": [0.02, 0.25, 0.17]},

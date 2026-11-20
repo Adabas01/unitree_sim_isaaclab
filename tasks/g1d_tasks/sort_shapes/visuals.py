@@ -13,6 +13,9 @@ def apply_robot_materials(env, env_ids):
         "aluminium": ((0.40, 0.43, 0.46), 0.32, 0.6),
         "head": ((0.035, 0.045, 0.06), 0.28, 0.1),
     }
+    # robot.palette (optional) in the scene settings overrides colours: {"shell": [r, g, b], ...}
+    for name, color in (env.cfg.sorting["robot"].get("palette") or {}).items():
+        palette[name] = (tuple(float(c) for c in color), *palette[name][1:])
     materials = {}
     for name, (color, roughness, metallic) in palette.items():
         path = f"/World/G1D_Materials/{name}"
