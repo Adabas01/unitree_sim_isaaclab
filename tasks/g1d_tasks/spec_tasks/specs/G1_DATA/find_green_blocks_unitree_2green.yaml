@@ -1,0 +1,318 @@
+# In-distribution layout of the mid-train dataset G1_Dex1_Find_Green_Blocks (490 episodes; prompt verbatim), written by
+# tools/author_g1_data_specs.py (pile drawn with numpy seed 0). As recorded: a loose pile of ~30 red and yellow
+# DUPLO-size bricks (2x2 and 2x4, 19 mm high), mostly one layer, with one green brick in it, a teal parts bin to the
+# right; the robot moves a few bricks aside if needed and puts the green one into the bin (episodes 5-12 s).
+# FIRST VERSION, NOT AS RECORDED (kept for the runs of 2026-11-20/23, which used it under the name
+# find_green_blocks_unitree, spec hash e21f2ffd7055e2e5): 28 bricks in three layers (14, 10, 4; the upper ones drop a
+# few mm and settle), 2 green 2x2 bricks in the bottom layer near the middle, both needed in the bin. The recordings
+# have one green brick and a flatter pile (find_green_blocks_unitree). Pile region from the recorded grasps, bin from each episode's last release (15 episodes, forward
+# kinematics, torso frame); brick sizes and counts from the first head frames. The real bin has a sloped front; this
+# one is a plain open box.
+# Run with: --table-height 0.9155 (table +0.070 m in the torso frame, from the Collect_Eggs
+# grasps; see author_g1_data_specs.py) and --start-pose=-0.106,0.585,0.397,0.017,-0.416,0.059,-0.808,-0.123,-0.712,-0.201,-0.038,0.455,0.065,1.088 (median first frame of the 15 episodes).
+# Torso frame: x forward, y left, metres.
+name: find_green_blocks_unitree_2green
+suite: G1_DATA
+source: huggingface.co/datasets/unitreerobotics/G1_Dex1_Find_Green_Blocks (15 episodes, grasp/release FK + first frames)
+task_type: put_all
+prompt: Find the green blocks in the pile and put them into the box.
+nouns: {object: green blocks, target: box, verb: put}
+rubric:
+  place_check: inside
+  move_close_to: aabb
+  lift_requires_grasp: true
+  placements:
+  - [green_1, bin]
+  - [green_2, bin]
+objects:
+- name: green_1
+  role: main
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: &id001 [0.15, 0.62, 0.22, 1.0]
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3948, -0.0082]
+  orientation_torso_xyzw: [0.0, 0.0, -0.9917, 0.1284]
+  centre_z_above_table: 0.0101
+- name: green_2
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id001
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4017, 0.0352]
+  orientation_torso_xyzw: [0.0, 0.0, -0.9831, 0.183]
+  centre_z_above_table: 0.0101
+- name: red_1
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: &id002 [0.8, 0.08, 0.08, 1.0]
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4117, -0.0529]
+  orientation_torso_xyzw: [0.0, 0.0, -0.9867, 0.1627]
+  centre_z_above_table: 0.0101
+- name: red_2
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4257, 0.1061]
+  orientation_torso_xyzw: [0.0, 0.0, -0.4112, 0.9115]
+  centre_z_above_table: 0.0101
+- name: red_3
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4531, 0.0561]
+  orientation_torso_xyzw: [0.0, 0.0, 0.9739, 0.2269]
+  centre_z_above_table: 0.0101
+- name: red_4
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3227, 0.0411]
+  orientation_torso_xyzw: [0.0, 0.0, -0.0003, 1.0]
+  centre_z_above_table: 0.0101
+- name: red_5
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4547, -0.0246]
+  orientation_torso_xyzw: [0.0, 0.0, 0.7241, 0.6897]
+  centre_z_above_table: 0.0101
+- name: red_6
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0636, 0.0318, 0.0192]
+  xy_torso: [0.335, -0.0589]
+  orientation_torso_xyzw: [0.0, 0.0, -0.8974, 0.4413]
+  centre_z_above_table: 0.0101
+- name: red_7
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0636, 0.0318, 0.0192]
+  xy_torso: [0.4081, -0.1095]
+  orientation_torso_xyzw: [0.0, 0.0, -0.921, 0.3896]
+  centre_z_above_table: 0.0101
+- name: yellow_1
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: &id003 [0.98, 0.72, 0.1, 1.0]
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3667, 0.0922]
+  orientation_torso_xyzw: [0.0, 0.0, -0.7597, 0.6502]
+  centre_z_above_table: 0.0101
+- name: yellow_2
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3651, -0.0885]
+  orientation_torso_xyzw: [0.0, 0.0, -0.9411, 0.3382]
+  centre_z_above_table: 0.0101
+- name: yellow_3
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4575, -0.076]
+  orientation_torso_xyzw: [0.0, 0.0, -0.9885, 0.1511]
+  centre_z_above_table: 0.0101
+- name: yellow_4
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0636, 0.0318, 0.0192]
+  xy_torso: [0.3231, 0.0018]
+  orientation_torso_xyzw: [0.0, 0.0, -0.0132, 0.9999]
+  centre_z_above_table: 0.0101
+- name: yellow_5
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0636, 0.0318, 0.0192]
+  xy_torso: [0.4823, 0.0112]
+  orientation_torso_xyzw: [0.0, 0.0, -0.064, 0.998]
+  centre_z_above_table: 0.0101
+- name: red_8
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4472, -0.027]
+  orientation_torso_xyzw: [0.0, 0.0, 0.1483, 0.9889]
+  centre_z_above_table: 0.0333
+- name: red_9
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4116, -0.0586]
+  orientation_torso_xyzw: [0.0, 0.0, -0.1418, 0.9899]
+  centre_z_above_table: 0.0333
+- name: red_10
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4002, 0.0866]
+  orientation_torso_xyzw: [0.0, 0.0, 0.5049, 0.8632]
+  centre_z_above_table: 0.0333
+- name: red_11
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3886, 0.0416]
+  orientation_torso_xyzw: [0.0, 0.0, 0.9028, 0.43]
+  centre_z_above_table: 0.0333
+- name: red_12
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0636, 0.0318, 0.0192]
+  xy_torso: [0.4509, 0.0422]
+  orientation_torso_xyzw: [0.0, 0.0, 0.4757, 0.8796]
+  centre_z_above_table: 0.0333
+- name: red_13
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0636, 0.0318, 0.0192]
+  xy_torso: [0.3503, -0.0379]
+  orientation_torso_xyzw: [0.0, 0.0, -0.9089, 0.417]
+  centre_z_above_table: 0.0333
+- name: yellow_6
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4044, -0.0014]
+  orientation_torso_xyzw: [0.0, 0.0, -0.1755, 0.9845]
+  centre_z_above_table: 0.0333
+- name: yellow_7
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3378, 0.0211]
+  orientation_torso_xyzw: [0.0, 0.0, 0.0566, 0.9984]
+  centre_z_above_table: 0.0333
+- name: yellow_8
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3493, 0.0632]
+  orientation_torso_xyzw: [0.0, 0.0, -0.1843, 0.9829]
+  centre_z_above_table: 0.0333
+- name: yellow_9
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0636, 0.0318, 0.0192]
+  xy_torso: [0.383, -0.0938]
+  orientation_torso_xyzw: [0.0, 0.0, -0.2502, 0.9682]
+  centre_z_above_table: 0.0333
+- name: red_14
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4428, -0.0046]
+  orientation_torso_xyzw: [0.0, 0.0, 0.9962, 0.0873]
+  centre_z_above_table: 0.0565
+- name: red_15
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id002
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3782, 0.0185]
+  orientation_torso_xyzw: [0.0, 0.0, 0.9991, 0.042]
+  centre_z_above_table: 0.0565
+- name: yellow_10
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.3878, -0.0438]
+  orientation_torso_xyzw: [0.0, 0.0, 0.1723, 0.985]
+  centre_z_above_table: 0.0565
+- name: yellow_11
+  role: distractor
+  asset:
+    source: primitive
+    primitive_type: Cube
+    rgba: *id003
+  bounding_box: [0.0318, 0.0318, 0.0192]
+  xy_torso: [0.4256, 0.0404]
+  orientation_torso_xyzw: [0.0, 0.0, 0.2251, 0.9743]
+  centre_z_above_table: 0.0565
+- name: bin
+  role: target
+  asset:
+    source: generated
+    kind: open_box
+    rgba: [0.08, 0.62, 0.58, 1.0]
+  bounding_box: [0.12, 0.16, 0.08]
+  xy_torso: [0.42, -0.32]
+  orientation_torso_xyzw: [0.0, 0.0, 0.0, 1.0]
+  centre_z_above_table: 0.04
+prompt_variants: {}

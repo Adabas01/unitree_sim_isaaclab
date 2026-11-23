@@ -1,0 +1,157 @@
+# In-distribution layout of the mid-train dataset G1_Dex1_Collect_Eggs (1000 episodes; prompt verbatim, the first of its
+# five phrasings), written by tools/author_g1_data_specs.py. As recorded: a 3 x 5 pulp egg tray in the middle (pink in
+# the first half of the episodes, blue later), 11 eggs standing in it, 4 loose eggs lying in front of it and beside
+# it; the robot puts the loose ones into the free cells. Positions from the recorded grasps (loose eggs) and releases
+# (tray) of 16 episodes (forward kinematics, torso frame); sizes and counts from the first head frames. The tray and
+# its eggs are fixed (kinematic); an egg counts when it lies inside the tray, not on top of other eggs.
+# Run with: --table-height 0.9155 (table +0.070 m in the torso frame, from the lowest grasps)
+# and --start-pose=-0.121,0.761,0.330,-0.031,-0.531,0.320,-1.026,-0.212,-0.802,-0.163,-0.155,0.464,0.294,1.057 (median first frame of the 16 episodes). Torso frame: x forward, y left, metres.
+name: collect_eggs_unitree
+suite: G1_DATA
+source: huggingface.co/datasets/unitreerobotics/G1_Dex1_Collect_Eggs (16 episodes, grasp/release FK + first frames)
+task_type: put_all
+prompt: Collect the eggs and place them into the tray.
+nouns: {object: eggs, target: tray, verb: Collect}
+rubric:
+  place_check: inside
+  rim_margin: 0.0
+  move_close_to: aabb
+  lift_requires_grasp: true
+  placements:
+  - [egg_1, tray]
+  - [egg_2, tray]
+  - [egg_3, tray]
+  - [egg_4, tray]
+objects:
+- name: egg_1
+  role: main
+  asset: &id001
+    source: behavior1k
+    category: egg
+    model: qopwgx
+    rgba: [0.95, 0.76, 0.58, 1.0]
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.35, 0.2]
+  orientation_torso_xyzw: [0.0, 0.0, 0.1987, 0.9801]
+  centre_z_above_table: 0.0175
+- name: egg_2
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.48, 0.22]
+  orientation_torso_xyzw: [0.0, 0.0, 0.7174, 0.6967]
+  centre_z_above_table: 0.0175
+- name: egg_3
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.29, -0.01]
+  orientation_torso_xyzw: [0.0, 0.0, -0.435, 0.9004]
+  centre_z_above_table: 0.0175
+- name: egg_4
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.42, -0.17]
+  orientation_torso_xyzw: [0.0, 0.0, 0.0998, 0.995]
+  centre_z_above_table: 0.0175
+- name: tray
+  role: target
+  asset:
+    source: generated
+    kind: open_box
+    rgba: [0.93, 0.66, 0.72, 1.0]
+  bounding_box: [0.155, 0.245, 0.03]
+  xy_torso: [0.455, 0.03]
+  orientation_torso_xyzw: [0.0, 0.0, 0.0, 1.0]
+  centre_z_above_table: 0.015
+  fixed_base: true
+- name: tray_egg_1
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.41, -0.06]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_2
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.41, 0.075]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_3
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.455, -0.06]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_4
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.455, -0.015]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_5
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.455, 0.03]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_6
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.455, 0.12]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_7
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.5, -0.06]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_8
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.5, -0.015]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_9
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.5, 0.03]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_10
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.5, 0.075]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+- name: tray_egg_11
+  role: distractor
+  asset: *id001
+  bounding_box: [0.043, 0.033, 0.033]
+  xy_torso: [0.5, 0.12]
+  orientation_torso_xyzw: [0.0, 0.7071, 0.0, 0.7071]
+  centre_z_above_table: 0.0275
+  fixed_base: true
+prompt_variants: {}

@@ -20,13 +20,36 @@ Gym id `Isaac-Spec-Task-G1D-Dex1-Joint`, config `G1DSpecEnvCfg(sorting=<scene.js
 | `mdp.py` | Torso frame (taken at startup), object placement at every reset, observations |
 | `recorder.py` | One JSONL record per episode (`logs/g1d_spec_tasks/<task>.jsonl`) |
 
+## Origin of the specs
+
+All specs are copies of ponimatkin's (chiral 554fb5e or isaaclab_biman_sim 4d0554c; the header of each file says
+which). The `G1`, `G1_ST` and `DROID10` specs are his imports of REALM task configs (BEHAVIOR-1K scene layouts), not
+reconstructions of the Unitree recordings, even where the task name and prompt match a mid-train dataset;
+`UNIFOLM/stack_rgy_blocks` and `G1D_DATA/sort_cubes_cylinders` were authored from recording frames. `G1_DATA/*`
+(ours, 2026-11-20) are mid-train tasks laid out from their recordings: `tools/recording_layouts.py` (frames, camera
+check and fit, grasp/release positions by forward kinematics) and `tools/author_g1_data_specs.py` (writes the specs;
+each header gives the `--table-height` and `--start-pose` to run it with). An `rgba` on a registered asset replaces
+its look by a plain colour; objects with `fixed_base: true` are kinematic. Comparison with
+the recordings: master-thesis `docs/sim_midtrain_tasks.md`, "Where the task layouts come from".
+
 ## Placement
 
 Specs give each object's position in the robot's torso frame (`xy_torso`, x forward, y left, level frame at the
 torso origin) and its centre height above the table top (`centre_z_above_table`). Here the torso origin and
 heading are read from the robot at its start pose (startup event; printed as `[G1-D spec] Torso frame`), and
-the table top is `table.height` of the scene. Every reset puts the objects back at these poses; there is no
-layout randomisation yet.
+the table top is `table.height` of the scene. By default every reset puts the objects back at these poses
+(chiral's evaluation default, perturbation `Default`).
+
+`--perturbation VB-POSE --perturb-seed <n>` (since 2026-11-20; `mdp.py`, port of chiral's `biman/perturb.py` at
+554fb5e): every reset re-places the main object(s) (`role: main`; target and distractors stay) at a random spot of
+REALM's G1 / G1-D perturbation zone, torso frame x 0.24-0.44 m, y -0.22-0.22 m, at least 3.5 cm from the other
+objects' boxes and from the start-pose hands (5 cm around each Dex1 link and around a point 7 cm ahead of it),
+turned about the vertical by N(0, pi) from its spec orientation (N(0, 0.15) for lid tasks); no free spot after 4000
+tries: the spec spot, still turned. Draw k of a sim process uses numpy `default_rng([seed, k])` with chiral's draw
+order, so the same seed gives chiral's layouts wherever the keep-outs agree (chiral measures them after settling,
+here from the spec poses and the start pose). The hand keep-outs are printed at the first reset (`VB-POSE hand
+keep-outs`); every episode record has the layout (`perturbation`: seed, draw, torso xy and yaw of each main object).
+`--capture-dir <dir> --reset-every <s>` (without `--sdk`) saves the camera views of every layout.
 
 The specs were authored for isaaclab_biman_sim's robots and table placements: the G1 suites (`G1`, `UNIFOLM`,
 `GRASP_BENCH`) for the legged G1's recordings (table ~0.03 m above the torso origin, robot leaning ~0.15 rad

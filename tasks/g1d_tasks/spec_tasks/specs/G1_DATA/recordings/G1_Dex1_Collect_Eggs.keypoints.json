@@ -1,0 +1,9 @@
+{
+ "about": "Gripper centres (midpoint of the two Dex1 fingertips) in the first head frames (head_stereo_left, 640x480) of the episodes fetched by tools/recording_layouts.py frames. Read by eye from 4x zoomed crops with a 10 px grid (Claude, 2026-11-20); about +-5 px. Used by `recording_layouts.py fitcam` to correct chiral's G1 head camera for this dataset.",
+ "points": {"0": {"left": [168.0, 292.0], "right": [421.6, 261.3]},
+            "200": {"left": [178.0, 290.0], "right": [470.9, 270.8]},
+            "400": {"left": [198.8, 294.9], "right": [431.4, 277.6]},
+            "599": {"left": [245.6, 229.5]},
+            "799": {"left": [190.6, 248.3], "right": [406.8, 239.8]},
+            "999": {"left": [237.8, 243.6]}}
+}

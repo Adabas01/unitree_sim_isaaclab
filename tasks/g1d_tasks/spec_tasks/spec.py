@@ -245,10 +245,13 @@ def spawn_cfg(o):
     if o["shape"] == "usd":  # chiral biman/assets.py spawn_cfg, registered rigid asset
         mass = sim_utils.MassPropertiesCfg(mass=o["mass"]) if o.get("mass") else \
             sim_utils.MassPropertiesCfg(density=o["density"])
+        # asset.rgba on a registered asset: its look replaced by a plain colour (e.g. G1_DATA's toy eggs)
+        look = (sim_utils.PreviewSurfaceCfg(diffuse_color=tuple(o["asset"]["rgba"][:3]), roughness=0.6)
+                if o["asset"].get("rgba") else None)
         return sim_utils.UsdFileCfg(usd_path=o["usd"], scale=tuple(o["scale"]), rigid_props=rigid, mass_props=mass,
                                     collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.004,
                                                                                      rest_offset=0.0),
-                                    activate_contact_sensors=True)
+                                    visual_material=look, activate_contact_sensors=True)
     if o["shape"] == "open_box":
         return sim_utils.UsdFileCfg(usd_path=open_box_usd(bbox, rgba), rigid_props=rigid,
                                     mass_props=sim_utils.MassPropertiesCfg(mass=OPEN_BOX_MASS),
