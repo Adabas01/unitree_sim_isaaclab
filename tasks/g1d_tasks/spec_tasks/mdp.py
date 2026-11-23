@@ -2,6 +2,7 @@
 
 import math
 
+import numpy as np
 import torch
 from isaaclab.utils.math import quat_mul
 
@@ -48,14 +49,107 @@ def spec_poses(env, env_ids):
     return poses
 
 
+# Layout perturbations (cfg.perturbation = {"kind", "seed"}), from ponimatkin/chiral biman/perturb.py at 554fb5e:
+#   Default   every reset puts the objects at the spec's poses (chiral's evaluation default).
+#   VB-POSE   every reset re-places the main objects (role "main") anywhere in REALM's G1 / G1-D perturbation zone in
+#             the torso frame, clear of the other objects (3.5 cm) and of the start-pose hands, turned about the
+#             vertical by N(0, pi) (N(0, 0.15) for a lid / door task) from their spec orientation. Draws come from
+#             numpy default_rng([seed, draw]), draw = this process's reset count, in chiral's order, so a seed gives
+#             chiral's layouts wherever the keep-outs agree. No free spot: the spec spot, still turned (as chiral).
+PERTURBATIONS = ("Default", "VB-POSE")
+ZONE_TORSO = (0.24, 0.44, -0.22, 0.22)  # x_min, x_max, y_min, y_max [m]
+MIN_SEP = 0.035
+HAND_KEEPOUT_R = 0.05  # around each Dex1 link and a point 7 cm ahead of it (the fingers)
+HAND_REACH = 0.07
+
+
+def start_hands_torso(env):
+    """(num_envs, links, 2) torso-frame xy of the Dex1 links at the arm start pose (cached, VB-POSE keep-outs). Called
+    during a reset, after reset_scene_to_default wrote the start pose: the link poses are recomputed from it."""
+    if getattr(env, "spec_hands_torso", None) is None:
+        robot = env.scene["robot"]
+        env.sim.physics_sim_view.update_articulations_kinematic()
+        links = robot.root_physx_view.get_link_transforms()[:, :, :3].clone()  # (N, bodies, 3), world
+        ids = [robot.body_names.index(link) for side in HAND_LINKS.values() for link in side]
+        rel = links[:, ids].to(env.device) - env.scene.env_origins[:, None, :] - env.spec_torso_pos[:, None, :]
+        c, s = torch.cos(env.spec_torso_yaw)[:, None], torch.sin(env.spec_torso_yaw)[:, None]
+        xy = torch.stack((c * rel[..., 0] + s * rel[..., 1], -s * rel[..., 0] + c * rel[..., 1]), -1)
+        env.spec_hands_torso = xy.cpu().numpy()
+        print("[G1-D spec] VB-POSE hand keep-outs (torso xy, start pose): "
+              + ", ".join(f"({x:.3f}, {y:.3f})" for x, y in env.spec_hands_torso[0]), flush=True)
+    return env.spec_hands_torso
+
+
+def _free_spot(rng, discs, r, zone, tries=4000):
+    # the centre's range per axis (an object wider than the zone stays on its middle line)
+    rx = (zone[0] + r, zone[1] - r) if zone[1] - zone[0] > 2 * r else ((zone[0] + zone[1]) / 2,) * 2
+    ry = (zone[2] + r, zone[3] - r) if zone[3] - zone[2] > 2 * r else ((zone[2] + zone[3]) / 2,) * 2
+    for _ in range(tries):
+        xy = np.array([rng.uniform(*rx), rng.uniform(*ry)])
+        if all(np.linalg.norm(xy - c) >= r + rc + MIN_SEP for c, rc in discs):
+            return xy
+    return None
+
+
+def vb_pose(env, env_ids, poses, seed):
+    """Re-place the main objects in `poses` (spec_poses output, changed in place); returns the layout per env."""
+    spec = env.cfg.task_spec
+    rng = np.random.default_rng([seed, env.spec_perturb_draws])
+    draw = env.spec_perturb_draws
+    env.spec_perturb_draws += 1
+    hands = start_hands_torso(env)
+    lid = spec["task_type"] in ("open_lid", "close_lid")
+    mains = [o for o in spec["objects"] if o["role"] == "main"]
+    layouts = {}
+    for row, i in enumerate(env_ids.tolist()):
+        discs = [(np.asarray(o["xy_torso"], float), max(float(o["bounding_box"][0]), float(o["bounding_box"][1])) / 2)
+                 for o in spec["objects"] if o["role"] != "main"]
+        for h in hands[i]:
+            discs += [(h, HAND_KEEPOUT_R), (h + np.array([HAND_REACH, 0.0]), HAND_KEEPOUT_R)]
+        c, s = math.cos(float(env.spec_torso_yaw[i])), math.sin(float(env.spec_torso_yaw[i]))
+        placed = {}
+        for o in mains:
+            r = float(np.hypot(float(o["bounding_box"][0]), float(o["bounding_box"][1]))) / 2  # turning circle
+            xy = _free_spot(rng, discs, r, ZONE_TORSO)
+            yaw = float(rng.normal(0.0, 0.15 if lid else np.pi))
+            free = xy is not None
+            if not free:
+                xy = np.asarray(o["xy_torso"], float)
+            pos, quat = poses[o["name"]]
+            pos[row, 0] = env.spec_torso_pos[i, 0] + c * xy[0] - s * xy[1]
+            pos[row, 1] = env.spec_torso_pos[i, 1] + s * xy[0] + c * xy[1]
+            q = torch.tensor([math.cos(yaw / 2), 0.0, 0.0, math.sin(yaw / 2)], device=quat.device)
+            quat[row] = quat_mul(q[None], quat[row][None])[0]
+            discs.append((xy, r))
+            placed[o["name"]] = {"xy_torso": [round(float(v), 4) for v in xy], "yaw": round(yaw, 4), "free_spot": free}
+        layouts[i] = {"kind": "VB-POSE", "seed": seed, "draw": draw, "objects": placed}
+    return layouts
+
+
 def place_objects(env, env_ids):
-    """Reset: every spec object at its authored pose, at rest."""
+    """Reset: every spec object at its authored pose, at rest; with cfg.perturbation VB-POSE the main objects at a
+    new draw. The layout of each env's current episode is kept in env.spec_layout (written to its record)."""
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
-    for name, (pos, quat) in spec_poses(env, env_ids).items():
+    perturbation = getattr(env.cfg, "perturbation", None) or {"kind": "Default", "seed": 0}
+    if not hasattr(env, "spec_layout"):
+        env.spec_layout = [None] * env.num_envs
+        env.spec_perturb_draws = 0
+    poses = spec_poses(env, env_ids)
+    if perturbation["kind"] == "VB-POSE":
+        layouts = vb_pose(env, env_ids, poses, int(perturbation["seed"]))
+    elif perturbation["kind"] == "Default":
+        layouts = {i: {"kind": "Default"} for i in env_ids.tolist()}
+    else:
+        raise ValueError(f"Unknown perturbation {perturbation['kind']!r}; known: {PERTURBATIONS}")
+    for i, layout in layouts.items():
+        env.spec_layout[i] = layout
+    fixed = {o["name"] for o in env.cfg.task_spec["objects"] if o.get("fixed_base")}
+    for name, (pos, quat) in poses.items():
         asset = env.scene[object_key(name)]
         asset.write_root_pose_to_sim(torch.cat((pos + env.scene.env_origins[env_ids], quat), -1), env_ids=env_ids)
-        asset.write_root_velocity_to_sim(torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids)
+        if name not in fixed:  # kinematic bodies take no velocity (PhysX error otherwise)
+            asset.write_root_velocity_to_sim(torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids)
 
 
 reset_objects = place_objects

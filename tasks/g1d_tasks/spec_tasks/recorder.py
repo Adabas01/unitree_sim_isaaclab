@@ -73,6 +73,7 @@ class SpecRecorder(RecorderTerm):
             "reason": self._reason(env_id, fallback_reason),
             "success": bool(evaluator.success[env_id].item()),
             "progress": float(rubric.progress()[env_id]),
+            "perturbation": (getattr(env, "spec_layout", None) or [None] * env.num_envs)[env_id],
             "placed_fraction": float(rubric.placed_fraction()[env_id]),
             "stages": stages,
             "unsupported_stages": rubric.unsupported,

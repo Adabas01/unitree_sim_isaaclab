@@ -98,6 +98,8 @@ class G1DSpecEnvCfg(ManagerBasedRLEnvCfg):
     sorting: dict = load_settings()
     evaluation: dict = load_evaluation_settings()
     task_spec: dict = load_spec(DEFAULT_SPEC)
+    # Layout perturbation per reset (mdp.place_objects): {"kind": "Default" | "VB-POSE", "seed": int}
+    perturbation: dict = {"kind": "Default", "seed": 0}
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=3.0)
     actions = ActionsCfg()
     observations = SpecObservationsCfg()

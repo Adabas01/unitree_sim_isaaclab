@@ -32,6 +32,13 @@ parser.add_argument(
     help="Replace a spec's registered container assets (not loadable yet) by open boxes of their bounding box",
 )
 parser.add_argument(
+    "--perturbation", choices=("Default", "VB-POSE"), default="Default",
+    help="Task specs only: object layout per reset. Default = the spec's poses every time; VB-POSE = the main objects "
+         "re-placed at random in the reachable zone, as chiral's VB-POSE (tasks/g1d_tasks/spec_tasks/mdp.py)",
+)
+parser.add_argument("--perturb-seed", type=int, default=0,
+                    help="Seed of the --perturbation draws (draw k of a run uses numpy default_rng([seed, k]))")
+parser.add_argument(
     "--table-height", type=float,
     help="Table top height in metres (default: the scene's table.height). The torso origin is printed at start; "
          "the G1_Dex1 recordings had the table ~0.03 m above it, the g1d-sort recordings ~0.10 m below",
@@ -122,6 +129,8 @@ try:
             parser.error(f"--start-pose needs 14 joint angles, got {len(start_pose)}")
         settings["robot"]["arm_positions"] = start_pose
     task_spec = None
+    if args.perturbation != "Default" and not args.task_spec:
+        parser.error("--perturbation needs --task-spec")
     if args.task_spec:
         from tasks.g1d_tasks.spec_tasks.spec import load_spec
         task_spec = load_spec(args.task_spec, placeholders=args.spec_placeholders)
@@ -132,7 +141,8 @@ try:
         from tasks.g1d_tasks.spec_tasks.env_cfg import G1DSpecEnvCfg
         from tasks.g1d_tasks.spec_tasks.mdp import reset_objects
         task_id = "Isaac-Spec-Task-G1D-Dex1-Joint"
-        cfg = G1DSpecEnvCfg(sorting=settings, evaluation=evaluation, task_spec=task_spec)
+        cfg = G1DSpecEnvCfg(sorting=settings, evaluation=evaluation, task_spec=task_spec,
+                            perturbation={"kind": args.perturbation, "seed": args.perturb_seed})
     else:
         from tasks.g1d_tasks.sort_shapes.env_cfg import G1DSortEnvCfg
         from tasks.g1d_tasks.sort_shapes.mdp import reset_objects
@@ -179,7 +189,8 @@ try:
     episode_number = 1
     if task_spec:
         print(f"G1-D task spec {task_spec['name']!r} ({task_spec['spec_file']}, hash {task_spec['spec_hash']}), "
-              f"prompt: {task_spec['prompt']!r}", flush=True)
+              f"prompt: {task_spec['prompt']!r}; perturbation {args.perturbation}"
+              + (f" seed {args.perturb_seed}" if args.perturbation != "Default" else ""), flush=True)
     print("G1-D scene ready. Cameras: front_camera, left_wrist_camera, right_wrist_camera, world_camera; "
           f"camera profile {cfg.sorting['cameras']['profile']!r}; controller_alignment "
           f"{cfg.sorting['robot']['controller_alignment']}; command timing {env.g1d_command_timing}.", flush=True)
@@ -250,19 +261,29 @@ try:
             count += 1
             if not torch.isfinite(env.scene["robot"].data.joint_pos).all():
                 raise RuntimeError("Non-finite robot state")
-            if args.capture_dir and count == min(60, args.steps or 60):
-                args.capture_dir.mkdir(parents=True, exist_ok=True)
+            # --capture-dir: the views at step 60 (or the last step); with --reset-every, of every episode at its
+            # step min(30, interval - 1), in <capture-dir>/episode_<n>/
+            capture_to = None
+            if args.capture_dir and not reset_interval and count == min(60, args.steps or 60):
+                capture_to = args.capture_dir
+            elif args.capture_dir and reset_interval and count % reset_interval == min(30, reset_interval - 1):
+                capture_to = args.capture_dir / f"episode_{count // reset_interval + 1:03d}"
+            if capture_to:
+                capture_to.mkdir(parents=True, exist_ok=True)
                 for name in ("front_camera", "left_wrist_camera", "right_wrist_camera", "world_camera"):
                     rgb = camera_rgb(env, name)[0].cpu().numpy()
-                    Image.fromarray(rgb).save(args.capture_dir / f"{name}.png")
+                    Image.fromarray(rgb).save(capture_to / f"{name}.png")
                 manifest = dict(
                     task=task_id, task_spec=task_spec and task_spec["spec_file"], seed=args.seed, control_step=count,
                     step_dt=env.step_dt, settings=cfg.sorting, evaluation=cfg.evaluation,
                     object_poses={name: obj.data.root_state_w[:, :7].cpu().tolist()
                                   for name, obj in env.scene.rigid_objects.items()},
+                    layout=(getattr(env, "spec_layout", None) or [None])[0],
+                    hand_links_w={name: env.scene["robot"].data.body_pos_w[0, env.scene["robot"].body_names.index(name)].cpu().tolist()
+                                  for name in env.scene["robot"].body_names if "dex1" in name},
                 )
-                (args.capture_dir / "scene.json").write_text(json.dumps(manifest, indent=2) + "\n")
-                print(f"Saved camera views to {args.capture_dir.resolve()}", flush=True)
+                (capture_to / "scene.json").write_text(json.dumps(manifest, indent=2) + "\n")
+                print(f"Saved camera views to {capture_to.resolve()}", flush=True)
             if reset_interval and count % reset_interval == 0:
                 env.reset()
                 if bridge:
