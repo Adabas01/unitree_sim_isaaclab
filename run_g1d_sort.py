@@ -60,6 +60,8 @@ parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--steps", type=int, default=0, help="Stop after N control steps; 0 runs until the window closes")
 parser.add_argument("--reset-every", type=float, default=0, help="Randomize the scene every N simulated seconds")
 parser.add_argument("--capture-dir", type=Path, help="Save all four camera images after 60 control steps")
+parser.add_argument("--capture-steps", help="With --capture-dir: save the images at these control steps instead "
+                    "(comma-separated, e.g. 60,240,420), each in <capture-dir>/step_<n>/")
 parser.add_argument("--sdk", action="store_true", help="Enable G1 arm/torso-yaw and Dex1 DDS control on domain 1")
 parser.add_argument("--dds-interface", default=None, help="DDS network interface; default uses SDK autodetection")
 parser.add_argument("--command-timeout", type=float, default=0.5, help="Hold measured joint positions after this many seconds without commands")
@@ -264,7 +266,10 @@ try:
             # --capture-dir: the views at step 60 (or the last step); with --reset-every, of every episode at its
             # step min(30, interval - 1), in <capture-dir>/episode_<n>/
             capture_to = None
-            if args.capture_dir and not reset_interval and count == min(60, args.steps or 60):
+            if args.capture_dir and args.capture_steps:
+                if str(count) in args.capture_steps.split(","):
+                    capture_to = args.capture_dir / f"step_{count:05d}"
+            elif args.capture_dir and not reset_interval and count == min(60, args.steps or 60):
                 capture_to = args.capture_dir
             elif args.capture_dir and reset_interval and count % reset_interval == min(30, reset_interval - 1):
                 capture_to = args.capture_dir / f"episode_{count // reset_interval + 1:03d}"

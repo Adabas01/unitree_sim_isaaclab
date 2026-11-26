@@ -30,11 +30,15 @@ def objects(settings):
     result = []
     for group, kind in (("cubes", "cube"), ("cylinders", "cylinder")):
         cfg = settings[group]
-        size = cfg["size"] if kind == "cube" else [2 * cfg["radius"], 2 * cfg["radius"], cfg["height"]]
-        radius = math.hypot(size[0], size[1]) / 2 if kind == "cube" else cfg["radius"]
-        result.extend(dict(name=f"{kind}_{i:03d}", kind=kind, size=size, radius=radius,
-                           mass=cfg["mass"], color=cfg["color"], target_bin=cfg["target_bin"])
-                      for i in range(cfg["count"]))
+        for i in range(cfg["count"]):
+            if kind == "cube":
+                size = cfg["size"]; radius = math.hypot(size[0], size[1]) / 2
+            else:
+                # optional "sizes": [[radius, height], ...], one entry per cylinder (e.g. a thin and a thick one)
+                radius, height = cfg["sizes"][i] if cfg.get("sizes") else (cfg["radius"], cfg["height"])
+                size = [2 * radius, 2 * radius, height]
+            result.append(dict(name=f"{kind}_{i:03d}", kind=kind, size=size, radius=radius,
+                               mass=cfg["mass"], color=cfg["color"], target_bin=cfg["target_bin"]))
     return result
 
 
@@ -314,6 +318,12 @@ def sample_layout(cfg, rng):
     if not cfg["randomization"]["enabled"]:
         rng = random.Random(cfg["randomization"]["fixed_seed"])
     rand, table = cfg["randomization"], cfg["table"]
+    # Explicit layout, e.g. measured from a real rollout: {"cube_000": [x, y, yaw], ...} for every object.
+    fixed = rand.get("fixed_poses")
+    if fixed:
+        return {obj["name"]: (float(fixed[obj["name"]][0]), float(fixed[obj["name"]][1]),
+                              table["height"] + obj["size"][2] / 2 + 0.002, float(fixed[obj["name"]][2]))
+                for obj in objects(cfg)}
     tx, ty = table["center_xy"]
     sx, sy = table["size_xy"]
     clearance = rand["clearance"]

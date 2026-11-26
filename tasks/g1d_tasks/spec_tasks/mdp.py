@@ -145,6 +145,13 @@ def place_objects(env, env_ids):
     for i, layout in layouts.items():
         env.spec_layout[i] = layout
     fixed = {o["name"] for o in env.cfg.task_spec["objects"] if o.get("fixed_base")}
+    # objects fed later (key `feed_at_s`, see feed_objects) wait at their parking spot
+    for o in env.cfg.task_spec["objects"]:
+        if "feed_at_s" in o:
+            poses[o["name"]] = _parked_pose(env, env_ids, o, poses[o["name"]][1])
+    env.spec_fed = [set() for _ in range(env.num_envs)] if not hasattr(env, "spec_fed") else env.spec_fed
+    for i in env_ids.tolist():
+        env.spec_fed[i] = set()
     for name, (pos, quat) in poses.items():
         asset = env.scene[object_key(name)]
         asset.write_root_pose_to_sim(torch.cat((pos + env.scene.env_origins[env_ids], quat), -1), env_ids=env_ids)
@@ -153,6 +160,39 @@ def place_objects(env, env_ids):
 
 
 reset_objects = place_objects
+
+
+def _parked_pose(env, env_ids, o, quat):
+    """Where an object with `feed_at_s` waits: at `park_xy_torso` (torso frame) on the floor, `park_z` [m] above it
+    (default: half its height), out of the cameras' sight when the spot is behind the robot."""
+    pos_t, yaw = env.spec_torso_pos[env_ids], env.spec_torso_yaw[env_ids]
+    c, s = torch.cos(yaw), torch.sin(yaw)
+    x, y = (float(v) for v in o["park_xy_torso"])
+    z = float(o.get("park_z", float(o["bounding_box"][2]) / 2 + 0.005))
+    return torch.stack((pos_t[:, 0] + c * x - s * y, pos_t[:, 1] + s * x + c * y, torch.full_like(yaw, z)), -1), quat
+
+
+def feed_objects(env, env_ids=None):
+    """Interval event (ours, not in chiral): an object with the spec key `feed_at_s` is moved from its parking spot to
+    its spec pose once the episode is that many seconds old, at rest. This is how further boxes come onto the
+    conveyor while the policy keeps running (the conveyor recordings' cell: an operator puts the next box on the belt)."""
+    late = [o for o in env.cfg.task_spec["objects"] if "feed_at_s" in o]
+    if not late or not hasattr(env, "spec_fed"):
+        return
+    t = env.episode_length_buf.float() * env.step_dt
+    for i in range(env.num_envs):
+        due = [o for o in late if o["name"] not in env.spec_fed[i] and float(t[i]) >= float(o["feed_at_s"])]
+        if not due:
+            continue
+        ids = torch.tensor([i], device=env.device)
+        poses = spec_poses(env, ids)
+        for o in due:
+            pos, quat = poses[o["name"]]
+            asset = env.scene[object_key(o["name"])]
+            asset.write_root_pose_to_sim(torch.cat((pos + env.scene.env_origins[ids], quat), -1), env_ids=ids)
+            asset.write_root_velocity_to_sim(torch.zeros((1, 6), device=env.device), env_ids=ids)
+            env.spec_fed[i].add(o["name"])
+        print(f"[G1-D spec] fed at {float(t[i]):.1f} s: " + ", ".join(o["name"] for o in due), flush=True)
 
 
 def object_poses(env):

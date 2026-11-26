@@ -18,6 +18,7 @@ from robots.g1d import robot_config
 from . import mdp
 from .calibration_targets import target_assets
 from .camera_lens import isaac_intrinsic_matrix, virtual_camera
+from .cube_spawner import ChamferedCubeCfg, RoundCylinderCfg
 from .evaluation import EvaluationRecorderManagerCfg, StageEvaluator, load_evaluation_settings
 from .layout import load_settings, objects, sample_layout
 from .visuals import apply_robot_materials
@@ -86,27 +87,33 @@ def build_workspace(settings):
         add_box(scene, name, size, position, color)
 
     rx, ry, rz = room["size"]
-    box("floor", (rx, ry, 0.10), (0.5, 0, -0.05), (0.19, 0.21, 0.23))
+    # room.floor_color / wall_color (optional): the look of another room; room.furniture false: no rack and cabinet;
+    # room.props: further static boxes [{name, size, position, color}] (e.g. the surroundings of the conveyor cell)
+    wall_colors = [tuple(room["wall_color"])] * 2 if "wall_color" in room else [(0.54, 0.56, 0.55), (0.47, 0.50, 0.53)]
+    box("floor", (rx, ry, 0.10), (0.5, 0, -0.05), tuple(room.get("floor_color", (0.19, 0.21, 0.23))))
     box("ceiling", (rx, ry, 0.10), (0.5, 0, rz + 0.05), (0.65, 0.65, 0.63))
     for side in (-1, 1):
         suffix = "minus" if side == -1 else "plus"
-        box(f"wall_x_{suffix}", (0.12, ry, rz), (0.5 + side * rx / 2, 0, rz / 2), (0.54, 0.56, 0.55))
-        box(f"wall_y_{suffix}", (rx, 0.12, rz), (0.5, side * ry / 2, rz / 2), (0.47, 0.50, 0.53))
+        box(f"wall_x_{suffix}", (0.12, ry, rz), (0.5 + side * rx / 2, 0, rz / 2), wall_colors[0])
+        box(f"wall_y_{suffix}", (rx, 0.12, rz), (0.5, side * ry / 2, rz / 2), wall_colors[1])
         box(f"wall_trim_{suffix}", (rx, 0.03, 0.12), (0.5, side * (ry / 2 - 0.07), 0.06), (0.08, 0.10, 0.12))
     # A storage rack and workbench provide an indoor manipulation-lab background.
     back = 0.5 + rx / 2 - 0.42
-    for y in (-0.85, 0.85):
+    for prop in room.get("props", []):
+        box(f"prop_{prop['name']}", prop["size"], prop["position"], prop["color"])
+    for y in (-0.85, 0.85) if room.get("furniture", True) else ():
         box(f"shelf_post_{'l' if y > 0 else 'r'}", (0.05, 0.05, 1.9), (back, y, 0.95), (0.09, 0.12, 0.15))
-    for level in range(4):
+    for level in range(4) if room.get("furniture", True) else ():
         z = 0.15 + level * 0.48
         box(f"shelf_{level}", (0.55, 1.85, 0.035), (back, 0, z), (0.17, 0.20, 0.22))
         for column in (-1, 1):
             box(f"stored_box_{level}_{'l' if column > 0 else 'r'}", (0.32, 0.46, 0.26),
                 (back, column * 0.48, z + 0.15), (0.33 + level * 0.025, 0.24, 0.14))
     cabinet_y = -ry / 2 + 0.35
-    box("cabinet", (1.8, 0.55, 0.80), (0.1, cabinet_y, 0.40), (0.24, 0.29, 0.32))
-    box("cabinet_top", (1.86, 0.6, 0.04), (0.1, cabinet_y, 0.82), (0.40, 0.42, 0.43))
-    for i in range(3):
+    if room.get("furniture", True):
+        box("cabinet", (1.8, 0.55, 0.80), (0.1, cabinet_y, 0.40), (0.24, 0.29, 0.32))
+        box("cabinet_top", (1.86, 0.6, 0.04), (0.1, cabinet_y, 0.82), (0.40, 0.42, 0.43))
+    for i in range(3) if room.get("furniture", True) else ():
         box(f"cabinet_handle_{i}", (0.18, 0.025, 0.025), (-0.5 + i * 0.6, cabinet_y + 0.285, 0.65), (0.05, 0.06, 0.07))
     scene.robot = robot_config(settings["robot"])
     # Wrist camera mounts (missing in the imported URDF): boxes fixed to each Dex1 base link, pose given for
@@ -142,7 +149,32 @@ def build_workspace(settings):
     sx, sy = table["size_xy"]
     height, thickness = table["height"], table["thickness"]
     # table.color (optional): the real evaluation table is dark; the default is the original light top
-    box("table_top", (sx, sy, thickness), (tx, ty, height - thickness / 2), tuple(table.get("color", (0.68, 0.64, 0.54))))
+    top_color = tuple(table.get("color", (0.68, 0.64, 0.54)))
+    if "belt_velocity_xy" in table:
+        # a conveyor instead of a table: the top is a kinematic body whose surface moves at table.belt_velocity_xy
+        # [m/s], between two fixed side rails (table.rail_width, default 0.04 m; outside size_xy, tops flush) on a body
+        from .belt import BeltCfg
+        vx, vy = table["belt_velocity_xy"]
+        scene.table_top = AssetBaseCfg(
+            prim_path="{ENV_REGEX_NS}/table_top",
+            spawn=BeltCfg(
+                size=(sx, sy, thickness), surface_velocity=(float(vx), float(vy), 0.0),
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+                collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=True, contact_offset=0.002, rest_offset=0.0),
+                physics_material=scene_material(),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=top_color, roughness=0.6),
+            ),
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(tx, ty, height - thickness / 2)),
+        )
+        rail, frame = float(table.get("rail_width", 0.04)), tuple(table.get("frame_color", (0.62, 0.63, 0.64)))
+        along_y = abs(vy) >= abs(vx)
+        for side in (-1, 1):
+            offset = side * ((sx if along_y else sy) / 2 + rail / 2)
+            box(f"belt_rail_{'minus' if side < 0 else 'plus'}", (rail, sy, 0.10) if along_y else (sx, rail, 0.10),
+                (tx + offset, ty, height - 0.05) if along_y else (tx, ty + offset, height - 0.05), frame)
+        box("belt_body", (sx, sy, 0.10), (tx, ty, height - thickness - 0.05), (0.25, 0.26, 0.27))
+    else:
+        box("table_top", (sx, sy, thickness), (tx, ty, height - thickness / 2), top_color)
     for i, (x, y) in enumerate(((-1, -1), (-1, 1), (1, -1), (1, 1))):
         box(f"table_leg_{i}", (0.035, 0.035, height - thickness),
             (tx + x * (sx / 2 - 0.035), ty + y * (sy / 2 - 0.035), (height - thickness) / 2),
@@ -210,8 +242,16 @@ def build_scene(settings, evaluation):
             physics_material=material,
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=tuple(obj["color"]), roughness=0.5),
         )
-        if obj["kind"] == "cube":
+        if obj["kind"] == "cube" and settings["cubes"].get("face_flat"):
+            # the real cubes: chamfered edges and corners, a hole in each face (scene keys face_flat, hole_diameter)
+            shape = ChamferedCubeCfg(size=obj["size"][0], face_flat=settings["cubes"]["face_flat"],
+                                     hole_diameter=settings["cubes"].get("hole_diameter", 0.0), **shape_args)
+        elif obj["kind"] == "cube":
             shape = sim_utils.CuboidCfg(size=tuple(obj["size"]), **shape_args)
+        elif settings["cylinders"].get("mesh_sections"):
+            # a round cylinder mesh (scene key cylinders.mesh_sections); the USD cylinder renders with about ten sides
+            shape = RoundCylinderCfg(radius=obj["radius"], height=obj["size"][2],
+                                     sections=int(settings["cylinders"]["mesh_sections"]), **shape_args)
         else:
             shape = sim_utils.CylinderCfg(radius=obj["radius"], height=obj["size"][2], **shape_args)
         x, y, z, yaw = poses[obj["name"]]

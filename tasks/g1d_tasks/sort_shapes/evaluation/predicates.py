@@ -55,6 +55,16 @@ def fully_inside_bin(local_pos, quat, obj, box, table_height, margin=0.0):
     return inside
 
 
+def center_inside_bin(local_pos, box, table_height, below_rim=0.01):
+    """Whether an object's centre is inside an open bin: over its inner footprint and between its floor and
+    `below_rim` under its rim. The object may touch or lean on a wall (the "ends in its container" rule)."""
+    center = torch.as_tensor(box["center_xy"], device=local_pos.device, dtype=local_pos.dtype)
+    half = torch.as_tensor(box["inner_size"][:2], device=local_pos.device, dtype=local_pos.dtype) / 2
+    inside = ((local_pos[:, :2] - center).abs() <= half).all(-1)
+    bottom = table_height + box["wall_thickness"]
+    return inside & (local_pos[:, 2] >= bottom) & (local_pos[:, 2] <= bottom + box["inner_size"][2] - below_rim)
+
+
 def center_over_bin(local_pos, box, margin=0.0):
     """Whether an object's centre is horizontally over a bin opening."""
     center = torch.as_tensor(box["center_xy"], device=local_pos.device, dtype=local_pos.dtype)

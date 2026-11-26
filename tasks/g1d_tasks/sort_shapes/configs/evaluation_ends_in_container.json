@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "enabled": true,
+  "episode_timeout_s": 30.0,
+  "stages": {
+    "reach": {
+      "enter_distance_m": 0.06,
+      "exit_distance_m": 0.08,
+      "pinch_point_offset_m": [
+        0.11,
+        0.0,
+        0.0
+      ],
+      "dwell_s": 0.1,
+      "weight": 0.15
+    },
+    "grasp": {
+      "minimum_contact_force_n": 0.2,
+      "maximum_gripper_open_fraction": 0.9,
+      "dwell_s": 0.1,
+      "weight": 0.2
+    },
+    "lift": {
+      "table_clearance_m": 0.03,
+      "dwell_s": 0.2,
+      "weight": 0.2
+    },
+    "transport": {
+      "bin_xy_margin_m": 0.0,
+      "dwell_s": 0.1,
+      "weight": 0.15
+    },
+    "place": {
+      "bin_margin_m": 0.004,
+      "maximum_linear_speed_m_s": 0.03,
+      "maximum_angular_speed_rad_s": 0.2,
+      "release_contact_force_n": 0.05,
+      "minimum_gripper_open_fraction": 0.75,
+      "require_release": true,
+      "dwell_s": 0.5,
+      "weight": 0.3,
+      "inside_test": "center"
+    }
+  },
+  "task_success": {
+    "dwell_s": 1.0,
+    "require_release": true,
+    "terminate_episode": true
+  },
+  "failures": {
+    "drop_clearance_m": 0.01
+  },
+  "logging": {
+    "enabled": true,
+    "path": "logs/g1d_evaluation/episodes.jsonl",
+    "run_label": ""
+  },
+  "_note": "Success as the thesis counts it since 2026-11-25: every object's centre inside its container (walls may be touched), at rest and not touched by a finger for 1 s. Select with --evaluation-config. The default evaluation.json keeps the strict test."
+}

@@ -79,6 +79,8 @@ class SpecEventsCfg:
     torso_frame = EventTermCfg(func=mdp.cache_torso_frame, mode="startup")
     reset_robot_and_objects = EventTermCfg(func=base_mdp.reset_scene_to_default, mode="reset")
     place_objects = EventTermCfg(func=mdp.place_objects, mode="reset")
+    # objects with the spec key `feed_at_s` come in during the episode (mdp.feed_objects); no effect on other specs
+    feed_objects = EventTermCfg(func=mdp.feed_objects, mode="interval", interval_range_s=(0.1, 0.1))
 
 
 @configclass

@@ -117,6 +117,7 @@ def _shape(path, o, placeholders):
             raise ValueError(f"{path}: object {o['name']!r}: primitive_type {shape!r} not supported")
         return shape, False
     if asset["source"] == "generated":
+        # keys of our own (not in chiral's specs): wall [m], mass [kg], front_height [m] (a lower wall at +x)
         if asset.get("kind", "open_box") != "open_box" or asset.get("opening"):
             raise ValueError(f"{path}: object {o['name']!r}: only plain generated open boxes are supported")
         return "open_box", False
@@ -253,16 +254,56 @@ def spawn_cfg(o):
                                                                                      rest_offset=0.0),
                                     visual_material=look, activate_contact_sensors=True)
     if o["shape"] == "open_box":
-        return sim_utils.UsdFileCfg(usd_path=open_box_usd(bbox, rgba), rigid_props=rigid,
-                                    mass_props=sim_utils.MassPropertiesCfg(mass=OPEN_BOX_MASS),
+        asset = o["asset"]
+        if asset.get("storage_bin") is not None:
+            # an open-fronted storage bin with a rim (asset key `storage_bin: {wall, rim_width, rim_height,
+            # front_height, full_fraction}`, optional `emissive`; ours, see storage_bin.py): x along its depth, front at +x
+            from .storage_bin import storage_bin_usd
+            usd = storage_bin_usd(bbox, rgba, GENERATED_USD_DIR, emissive=asset.get("emissive", (0.0, 0.0, 0.0)),
+                                  friction=(STATIC_FRICTION, DYNAMIC_FRICTION), **asset["storage_bin"])
+        else:
+            usd = open_box_usd(bbox, rgba, float(asset.get("wall", OPEN_BOX_WALL)), asset.get("front_height"))
+        return sim_utils.UsdFileCfg(usd_path=usd, rigid_props=rigid,
+                                    mass_props=sim_utils.MassPropertiesCfg(mass=float(asset.get("mass", OPEN_BOX_MASS))),
                                     activate_contact_sensors=True)
     common = dict(
         rigid_props=rigid, mass_props=sim_utils.MassPropertiesCfg(density=DENSITY),
         collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.004, rest_offset=0.0),
         physics_material=material,
-        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=tuple(rgba[:3]), roughness=0.5),
+        # asset.emissive (not in chiral's specs): a glow, for translucent or very bright real objects
+        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=tuple(rgba[:3]), roughness=0.5,
+                                                    emissive_color=tuple(o["asset"].get("emissive", (0.0, 0.0, 0.0)))),
         activate_contact_sensors=True,
     )
+    if o["shape"] == "cylinder" and o["asset"].get("dish"):
+        # a real plate (asset key `dish: true`, not in chiral's specs): a shallow round dish of the box's size instead
+        # of the flat USD cylinder, which also renders with about ten sides
+        from ..sort_shapes.cube_spawner import DishCfg
+        return DishCfg(diameter=min(bbox[:2]), height=bbox[2], **common)
+    if o["shape"] == "cube" and o["asset"].get("oval_basket"):
+        # the author's oval wicker basket with a handle (asset key `oval_basket: true`, `rim_height` [m], optional
+        # `mass` [kg]; not in chiral's specs): the box is its length (x), width (y, under the handle) and total height
+        from .oval_basket import oval_basket_usd
+        return sim_utils.UsdFileCfg(usd_path=oval_basket_usd(bbox, o["asset"].get("rim_height", 0.11), rgba, GENERATED_USD_DIR),
+                                    rigid_props=rigid, activate_contact_sensors=True,
+                                    mass_props=sim_utils.MassPropertiesCfg(mass=float(o["asset"].get("mass", 0.15))))
+    if o["shape"] == "cube" and o["asset"].get("lump"):
+        # a soft wad (asset key `lump: true`, `mass` [kg], optional `seed`, `stiffness` [N/m]; not in chiral's specs):
+        # an irregular rounded lump of the box's size with compliant contacts, so that the fingers sink into it a
+        # little instead of meeting a hard body. A rigid stand-in for bubble wrap or a glove.
+        from ..sort_shapes.cube_spawner import LumpCfg
+        soft = sim_utils.RigidBodyMaterialCfg(
+            static_friction=STATIC_FRICTION, dynamic_friction=DYNAMIC_FRICTION, restitution=0.0,
+            compliant_contact_stiffness=float(o["asset"].get("stiffness", 2000.0)),
+            compliant_contact_damping=float(o["asset"].get("damping", 20.0)))
+        lump = dict(common, physics_material=soft, mass_props=sim_utils.MassPropertiesCfg(mass=float(o["asset"].get("mass", 0.01))))
+        return LumpCfg(size=tuple(bbox), seed=int(o["asset"].get("seed", 0)), **lump)
+    if o["shape"] == "cube" and o["asset"].get("toy_banana"):
+        # the author's toy banana (asset key `toy_banana: true`, optional `mass` [kg]; not in chiral's specs): a round
+        # curved tube of the box's size (x along it, y across the curve, z its thickness) instead of the box
+        from ..sort_shapes.cube_spawner import ToyBananaCfg
+        banana = dict(common, mass_props=sim_utils.MassPropertiesCfg(mass=float(o["asset"].get("mass", 0.04))))
+        return ToyBananaCfg(length=bbox[0], width=bbox[1], thickness=bbox[2], **banana)
     if o["shape"] == "cylinder":
         return sim_utils.CylinderCfg(radius=min(bbox[:2]) / 2, height=bbox[2], axis="Z", **common)
     if o["shape"] == "sphere":
@@ -270,14 +311,16 @@ def spawn_cfg(o):
     return sim_utils.CuboidCfg(size=tuple(bbox), **common)
 
 
-def open_box_usd(size, rgba, wall=OPEN_BOX_WALL):
+def open_box_usd(size, rgba, wall=OPEN_BOX_WALL, front_height=None):
     """An open-top box (floor and four walls, one rigid body with a compound collider of cubes) of outer size
-    (x, y, z), centred on its box centre; written once per size and colour (isaaclab_biman_sim open_box_usd)."""
+    (x, y, z), centred on its box centre; written once per size and colour (isaaclab_biman_sim open_box_usd).
+    `front_height` (ours): the wall at +x only this high, as the open front of a storage bin."""
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
 
     sx, sy, sz = (round(float(v), 4) for v in size)
     col = tuple(round(float(c), 3) for c in rgba[:3])
-    path = GENERATED_USD_DIR / f"open_box_{sx}x{sy}x{sz}_w{wall}_c{col[0]}-{col[1]}-{col[2]}.usda"
+    front = "" if front_height is None else f"_f{round(float(front_height), 4)}"
+    path = GENERATED_USD_DIR / f"open_box_{sx}x{sy}x{sz}_w{wall}{front}_c{col[0]}-{col[1]}-{col[2]}.usda"
     if path.exists():
         return str(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -302,6 +345,9 @@ def open_box_usd(size, rgba, wall=OPEN_BOX_WALL):
     parts = {"floor": ((0, 0, -sz / 2 + wall / 2), (sx, sy, wall)),
              "wall_xn": ((-sx / 2 + wall / 2, 0, 0), (wall, sy, sz)), "wall_xp": ((sx / 2 - wall / 2, 0, 0), (wall, sy, sz)),
              "wall_yn": ((0, -sy / 2 + wall / 2, 0), (sx, wall, sz)), "wall_yp": ((0, sy / 2 - wall / 2, 0), (sx, wall, sz))}
+    if front_height is not None:
+        fh = float(front_height)
+        parts["wall_xp"] = ((sx / 2 - wall / 2, 0, -sz / 2 + fh / 2), (wall, sy, fh))
     for name, (centre, scale) in parts.items():
         cube = UsdGeom.Cube.Define(stage, f"/box/{name}")
         cube.CreateSizeAttr(1.0)

@@ -64,6 +64,9 @@ def load_evaluation_settings(path=DEFAULT_EVALUATION):
     _number(place, "maximum_angular_speed_rad_s", "stages.place")
     _number(place, "release_contact_force_n", "stages.place")
     _number(place, "minimum_gripper_open_fraction", "stages.place", maximum=1.0)
+    # "full": the whole object inside with bin_margin_m to the walls (default); "center": its centre inside
+    if place.setdefault("inside_test", "full") not in ("full", "center"):
+        raise ValueError('stages.place.inside_test must be "full" or "center"')
     if type(place.get("require_release")) is not bool:
         raise ValueError("stages.place.require_release must be boolean")
 

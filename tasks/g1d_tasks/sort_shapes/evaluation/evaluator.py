@@ -9,7 +9,7 @@ from isaaclab.utils.math import quat_apply
 from robots.g1d_joints import joint_state
 from ..layout import objects
 from .config import STAGE_NAMES
-from .predicates import center_over_bin, fully_inside_bin, point_surface_distance, world_extent
+from .predicates import center_inside_bin, center_over_bin, fully_inside_bin, point_surface_distance, world_extent
 from .state_machine import advance_condition_dwell, advance_ordered_stages
 
 
@@ -117,6 +117,13 @@ class StageEvaluator(ManagerTermBase):
         self.ever_inside_target[env_ids] = False
         self.inside_target[env_ids] = False
 
+    def _inside(self, pos, quat, item, box):
+        """The place test selected by stages.place.inside_test (whole object, or its centre, inside the bin)."""
+        place = self.protocol["stages"]["place"]
+        if place.get("inside_test", "full") == "center":
+            return center_inside_bin(pos, box, self.settings["table"]["height"])
+        return fully_inside_bin(pos, quat, item, box, self.settings["table"]["height"], place["bin_margin_m"])
+
     def _finger_forces(self):
         """Return filtered normal-force magnitudes as (env, hand, finger, object)."""
         result = torch.zeros(
@@ -211,16 +218,10 @@ class StageEvaluator(ManagerTermBase):
             transport[:, i] = center_over_bin(
                 local_pos[:, i], target, self.protocol["stages"]["transport"]["bin_xy_margin_m"]
             )
-            target_geometry[:, i] = fully_inside_bin(
-                local_pos[:, i], quat[:, i], item, target, self.settings["table"]["height"],
-                self.protocol["stages"]["place"]["bin_margin_m"],
-            )
+            target_geometry[:, i] = self._inside(local_pos[:, i], quat[:, i], item, target)
             for name, box in boxes.items():
                 if name != item["target_bin"]:
-                    wrong_geometry[:, i] |= fully_inside_bin(
-                        local_pos[:, i], quat[:, i], item, box, self.settings["table"]["height"],
-                        self.protocol["stages"]["place"]["bin_margin_m"],
-                    )
+                    wrong_geometry[:, i] |= self._inside(local_pos[:, i], quat[:, i], item, box)
 
         place_cfg = self.protocol["stages"]["place"]
         self.ever_over_target |= transport
