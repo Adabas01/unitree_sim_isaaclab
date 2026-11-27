@@ -263,6 +263,8 @@ Scene key `robot.joint_stiction_nm` (aligned mode only, off when absent), e.g.
 is pulled towards the target less the moving friction (half the breakaway
 torque, divided by kp), and a joint that has come to rest is held where it
 stands until kp times its distance to the target exceeds the breakaway torque.
+`robot.joint_stiction_kinetic_fraction` (default 0.5) sets the moving friction
+as a share of the breakaway torque.
 Reason: the real arm joints stand still a few hundredths of a radian from a
 slowly moving target; PhysX joint friction under the implicit drive does not
 reproduce that. The values used so far are set by hand from one replayed real

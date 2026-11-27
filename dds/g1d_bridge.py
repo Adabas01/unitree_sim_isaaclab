@@ -268,11 +268,13 @@ class G1DBridge:
         self._stuck = [False] * len(ARM_JOINTS)
         self._stuck_q = [0.0] * len(ARM_JOINTS)
         self._still = [0] * len(ARM_JOINTS)
-        print(f"[G1-D SDK] joint stiction [Nm]: {dict(zip(ARM_JOINTS, self._stiction))}", flush=True)
+        # optional scene key robot.joint_stiction_kinetic_fraction: moving friction as a share of the breakaway torque
+        self._kinetic_fraction = float(robot.get("joint_stiction_kinetic_fraction", self.KINETIC_FRACTION))
+        print(f"[G1-D SDK] joint stiction [Nm]: {dict(zip(ARM_JOINTS, self._stiction))}, moving share {self._kinetic_fraction}", flush=True)
 
     STICK_SPEED = 0.02       # rad/s: slower than this for STICK_STEPS control steps counts as standing still
     STICK_STEPS = 2
-    KINETIC_FRACTION = 0.5   # moving friction as a share of the breakaway torque
+    KINETIC_FRACTION = 0.5   # moving friction as a share of the breakaway torque (default)
 
     def _stick(self, arm, measured, arm_destinations):
         """The arm command with the joint friction model applied to its position targets (see _init_stiction)."""
@@ -283,7 +285,7 @@ class G1DBridge:
             if limit <= 0 or not arm.active[j] or arm.kp[j] <= 0:
                 self._stuck[j] = False
                 continue
-            kinetic = self.KINETIC_FRACTION * limit
+            kinetic = self._kinetic_fraction * limit
             error, shift = arm.q[j] - position[j], kinetic / arm.kp[j]
             pulled = arm.q[j] - math.copysign(shift, error)
             if self._stuck[j] and arm.kp[j] * abs(arm.q[j] - self._stuck_q[j]) > limit:

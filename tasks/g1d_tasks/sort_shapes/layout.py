@@ -136,6 +136,8 @@ def load_settings(path=DEFAULT_SCENE, camera_profile=None):
     stiction = robot.setdefault("joint_stiction_nm", {})
     if not isinstance(stiction, dict) or any(name not in ARM_SUFFIXES or float(value) < 0 for name, value in stiction.items()):
         raise ValueError(f"robot.joint_stiction_nm maps arm joints {ARM_SUFFIXES} to nonnegative breakaway torques [Nm]")
+    if not 0 <= float(robot.get("joint_stiction_kinetic_fraction", 0.5)) <= 1:
+        raise ValueError("robot.joint_stiction_kinetic_fraction must be between 0 and 1")
     dynamics = robot.setdefault("joint_dynamics", {})
     if not isinstance(dynamics, dict):
         raise ValueError("robot.joint_dynamics must be an object")
