@@ -85,6 +85,7 @@ class G1DBridge:
         self._yaw_id = self.robot.joint_names.index("torso_Joint")
         if self.controller_alignment:
             self._init_motor_targets()
+        self._init_stiction()
         self._torso_id = self.robot.body_names.index("torso_link")
         self._held_action = joint_state(env).clone()
         self._held_yaw = self.robot.data.joint_pos[:, self._yaw_id].clone()
@@ -244,6 +245,58 @@ class G1DBridge:
         self._last_kp = None
         self._last_kd = None
 
+    def _init_stiction(self):
+        """Friction of the arm joints as the position controller sees it (scene key robot.joint_stiction_nm:
+        {joint suffix: breakaway torque in Nm}; aligned mode only).
+
+        The real arm joints stop short of their target and then stand still while the target moves by up to
+        0.02-0.03 rad (2026-11-27: the right shoulder pitch stops 0.019 rad short and stays at -0.849 rad for 3 s with
+        the command 0.010-0.027 rad away, kp 80), then break away. PhysX joint friction (robot.joint_dynamics) lets
+        the driven joint creep up to its target, and a policy whose targets lead the measured joints by the real
+        arm's standing error then drifts in the sim. Model, per joint, with the breakaway torque F and the moving
+        friction KINETIC_FRACTION * F:
+          moving:   the drive pulls towards the target less the moving friction (target shifted by it / kp), so
+                    the joint stops that far short, as with Coulomb friction;
+          standing: a joint that has come to rest there sticks: the drive holds it where it stands until
+                    kp * |target - that position| exceeds F."""
+        robot = self.env.cfg.sorting["robot"] if hasattr(self.env.cfg, "sorting") else {}
+        values = robot.get("joint_stiction_nm") or {}
+        self._stiction = None
+        if not values or not self.controller_alignment:
+            return
+        self._stiction = [float(values.get(name.split("_", 1)[1].rsplit("_joint", 1)[0], 0.0)) for name in ARM_JOINTS]
+        self._stuck = [False] * len(ARM_JOINTS)
+        self._stuck_q = [0.0] * len(ARM_JOINTS)
+        self._still = [0] * len(ARM_JOINTS)
+        print(f"[G1-D SDK] joint stiction [Nm]: {dict(zip(ARM_JOINTS, self._stiction))}", flush=True)
+
+    STICK_SPEED = 0.02       # rad/s: slower than this for STICK_STEPS control steps counts as standing still
+    STICK_STEPS = 2
+    KINETIC_FRACTION = 0.5   # moving friction as a share of the breakaway torque
+
+    def _stick(self, arm, measured, arm_destinations):
+        """The arm command with the joint friction model applied to its position targets (see _init_stiction)."""
+        q, dq = list(arm.q), list(arm.dq)
+        speed = self.robot.data.joint_vel[0, self._arm_ids].abs().cpu().tolist()
+        position = measured[0, arm_destinations].cpu().tolist()
+        for j, limit in enumerate(self._stiction):
+            if limit <= 0 or not arm.active[j] or arm.kp[j] <= 0:
+                self._stuck[j] = False
+                continue
+            kinetic = self.KINETIC_FRACTION * limit
+            error, shift = arm.q[j] - position[j], kinetic / arm.kp[j]
+            pulled = arm.q[j] - math.copysign(shift, error)
+            if self._stuck[j] and arm.kp[j] * abs(arm.q[j] - self._stuck_q[j]) > limit:
+                self._stuck[j], self._still[j] = False, 0
+            elif not self._stuck[j]:
+                self._still[j] = self._still[j] + 1 if speed[j] < self.STICK_SPEED else 0
+                # the controller's pull is below the moving friction (the joint cannot keep moving), or the joint is
+                # at rest and what is left of the pull after the moving friction is below that friction
+                if abs(error) <= shift or (self._still[j] >= self.STICK_STEPS and arm.kp[j] * abs(pulled - position[j]) < kinetic):
+                    self._stuck[j], self._stuck_q[j] = True, position[j]
+            q[j], dq[j] = (self._stuck_q[j], 0.0) if self._stuck[j] else (pulled, dq[j])
+        return arm._replace(q=q, dq=dq)
+
     def _apply_motor_targets(self, command=None):
         """Use PhysX's single PD drive plus SDK feedforward, with no extra PD torque."""
         kp, kd = self._default_kp.clone(), self._default_kd.clone()
@@ -275,6 +328,8 @@ class G1DBridge:
         self._held_action = joint_state(self.env).clone()
         self._held_yaw = self.robot.data.joint_pos[:, self._yaw_id].clone()
         self._fresh.clear()
+        if getattr(self, "_stiction", None):
+            self._stuck, self._still = [False] * len(ARM_JOINTS), [0] * len(ARM_JOINTS)
         if self.controller_alignment:
             self._last_kp = self._last_kd = None
             self._apply_motor_targets()
@@ -305,6 +360,8 @@ class G1DBridge:
         action = self._held_action.clone()
         yaw = self._held_yaw.clone()
         arm = commands.get("arms")
+        if "arms" in fresh and self._stiction:
+            arm = self._stick(arm, measured, arm_destinations)
         if "arms" in fresh:
             q, active, weight = arm.q, arm.active, arm.weight
             for j, dest in enumerate(arm_destinations):

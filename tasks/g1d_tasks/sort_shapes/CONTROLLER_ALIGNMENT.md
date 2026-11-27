@@ -252,3 +252,18 @@ was not validated; a GPU-enabled attempt encountered unavailable GPU memory.
 Restart the simulator and the G1 client to load these changes. No USD re-import
 is needed: the runtime articulation configuration supplies defaults, and the
 SDK bridge applies incoming motor fields.
+
+## Optional joint friction model (2026-11-27)
+
+Scene key `robot.joint_stiction_nm` (aligned mode only, off when absent), e.g.
+`{"shoulder_pitch": 1.2, "elbow": 0.5}`: breakaway torque in Nm per arm joint
+(`shoulder_pitch`, `shoulder_roll`, `shoulder_yaw`, `elbow`, `wrist_roll`,
+`wrist_pitch`, `wrist_yaw`, both arms). The bridge (`dds/g1d_bridge.py`,
+`_stick`) then changes the position targets it passes to PhysX: a moving joint
+is pulled towards the target less the moving friction (half the breakaway
+torque, divided by kp), and a joint that has come to rest is held where it
+stands until kp times its distance to the target exceeds the breakaway torque.
+Reason: the real arm joints stand still a few hundredths of a radian from a
+slowly moving target; PhysX joint friction under the implicit drive does not
+reproduce that. The values used so far are set by hand from one replayed real
+rollout, not fitted (master-thesis `docs/sim_conveyor.md`, 2026-11-27).

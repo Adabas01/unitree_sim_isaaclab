@@ -133,6 +133,9 @@ def load_settings(path=DEFAULT_SCENE, camera_profile=None):
         if payload["mass_kg"] < 0:
             raise ValueError("Payload masses must be nonnegative")
     _camera_mount(robot.setdefault("camera_mount", []), "robot.camera_mount")
+    stiction = robot.setdefault("joint_stiction_nm", {})
+    if not isinstance(stiction, dict) or any(name not in ARM_SUFFIXES or float(value) < 0 for name, value in stiction.items()):
+        raise ValueError(f"robot.joint_stiction_nm maps arm joints {ARM_SUFFIXES} to nonnegative breakaway torques [Nm]")
     dynamics = robot.setdefault("joint_dynamics", {})
     if not isinstance(dynamics, dict):
         raise ValueError("robot.joint_dynamics must be an object")
